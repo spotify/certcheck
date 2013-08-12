@@ -1,0 +1,29 @@
+                               SPOTIFY PROJECT
+                              -----------------
+
+
+Copyright (c) 2013 Spotify AB
+
+THIS REPOSITORY IS THE PROPERTY OF SPOTIFY AB
+UNAUTHORIZED ACCESS TO THIS DATA IS STRICTLY PROHIBITED.
+
+README Template Version 7
+
+Project     : certcheck
+Maintainer  : Pawel Rozlach <prozlach@spotify.com>
+Guild       : (the guild name this project belongs to) <(the-guild@spotify.com)>
+Dependencies: (project names, comma separated)
+Related     : (project names, comma separated)
+System      : (name of system this project belongs to, if any)
+Environment : (Python, C/C++/Objective C, Java, Ruby, PHP)
+
+DESCRIPTION
+------------
+
+( A one paragraph description that will be used to describe the project. (e.g. on the techdoc index page) )
+
+DOCUMENTATION
+-------------
+
+Documentation for this project should be found in the doc directory.
+Information on how Spotify projects should be documented is available on https://techdoc.spotify.net/projbooks/docs/
