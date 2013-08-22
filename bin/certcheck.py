@@ -7,9 +7,6 @@ from __future__ import print_function
 from __future__ import with_statement
 
 #Imports:
-#from os import listdir
-#from os.path import isfile, join
-
 from OpenSSL.crypto import FILETYPE_PEM
 from OpenSSL.crypto import load_certificate
 from datetime import datetime
@@ -302,7 +299,7 @@ def main():
             msg.append('Warninig threshold should be greater than critical treshold.')
 
         #if there are problems with thresholds then there is no point in continuing:
-        ScriptStatus.notify_immediate('unknown', "Configuration file contains errors" +
+        ScriptStatus.notify_immediate('unknown', "Configuration file contains errors: " +
                                       msg)
 
         ScriptLock.init(args.lock_file)
