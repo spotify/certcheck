@@ -10,12 +10,12 @@ from __future__ import with_statement
 #from os import listdir
 #from os.path import isfile, join
 
-from OpenSSL.crypto import FILETYPE_PEM, FILETYPE_ASN1, FILETYPE_TEXT
+from OpenSSL.crypto import FILETYPE_PEM
 from OpenSSL.crypto import load_certificate
-from eagleeye.riemann import Riemann
 from datetime import datetime
-from lockfile.pidlockfile import PIDLockFile
+from eagleeye.riemann import Riemann
 import argparse
+import fcntl
 import json
 import logging
 import logging.handlers
@@ -27,9 +27,10 @@ import traceback
 #Constants:
 LOCKFILE_LOCATION = './'+os.path.basename(__file__)+'.lock'
 CONFIGFILE_LOCATION = './'+os.path.basename(__file__)+'.conf'
-DATA_TTL = 25*60*60 #Data gathered by the script run is valid for 25 hours.
+DATA_TTL = 25*60*60  # Data gathered by the script run is valid for 25 hours.
 SERVICE_NAME = 'certcheck'
 CERTIFICATE_EXTENSIONS = ['der', 'crt', 'pem', 'cer', 'p12', 'pfx', ]
+
 
 class RecoverableException(Exception):
     """
@@ -37,6 +38,7 @@ class RecoverableException(Exception):
     to Riemann, and the ones that should be only logged due to their severity
     """
     pass
+
 
 class ScriptConfiguration(object):
 
@@ -49,7 +51,7 @@ class ScriptConfiguration(object):
         """
         try:
             with open(file_path, 'r') as fh:
-                _config = json.load(fh)
+                cls._config = json.load(fh)
         except IOError as e:
             logging.error("Failed to open config file {0}: {1}".format(
                 file_path, e))
@@ -61,20 +63,21 @@ class ScriptConfiguration(object):
 
     @classmethod
     def get_val(cls, key):
-        return config.get(key, None)
+        return cls._config.get(key, None)
+
 
 class ScriptStatus(object):
 
-    _STATES = { 'ok': 0,
-                'warn': 1,
-                'critical': 2,
-                'unknown': 3,
-                }
+    _STATES = {'ok': 0,
+               'warn': 1,
+               'critical': 2,
+               'unknown': 3,
+               }
 
-    _exit_status=None
-    _exit_message=''
-    _riemann_connections=[]
-    _riemann_tags=None
+    _exit_status = None
+    _exit_message = ''
+    _riemann_connections = []
+    _riemann_tags = None
     _hostname = ''
 
     @classmethod
@@ -89,16 +92,16 @@ class ScriptStatus(object):
             try:
                 host, port = riemann_host.split(':')
                 port = int(port)
-            except ValueError
-                logging.error("{0} is not a correct Riemann hostname.".format(riemann_host) +
-                        " Please try hostname:port or ipaddress:port")
+            except ValueError:
+                logging.error("{0} is not a correct Riemann hostname.".format(
+                    riemann_host) + " Please try hostname:port or ipaddress:port")
                 continue
 
             try:
                 riemann_connection = Riemann(host, port)
             except Exception as e:
-                logging.error("Failed to connect to Rieman host {0}, ".format(riemann_host) +
-                        " address has been exluded from the list.")
+                logging.error("Failed to connect to Rieman host {0}: {1}, ".format(
+                    riemann_host, str(e)) + "address has been exluded from the list.")
                 logging.error("traceback: {0}".format(traceback.format_exc()))
                 continue
 
@@ -106,21 +109,22 @@ class ScriptStatus(object):
             cls._riemann_connections.append(riemann_connection)
 
         if not cls._riemann_connections:
-            logging.error("there are no active connections to Riemann, " + \
-                    "metrics will not be send!")
+            logging.error("there are no active connections to Riemann, " +
+                          "metrics will not be send!")
 
     @classmethod
     def notify_immediate(cls, exit_status, exit_message):
         """
         Imediatelly send given data to Riemann
         """
-        logging.info("notify_immediate, exit_status=<{0}>, exit_message=<{1}>".format(
-            exit_status, exit_message))
+        logging.info("notify_immediate, " +
+                     "exit_status=<{0}>, exit_message=<{1}>".format(
+                     exit_status, exit_message))
         event = {
-            'host' : cls._hostname,
-            'service' : SERVICE_NAME,
-            'state' : exit_status,
-            'description' : exit_message,
+            'host': cls._hostname,
+            'service': SERVICE_NAME,
+            'state': exit_status,
+            'description': exit_message,
             'tags': cls._riemann_tags,
             'ttl': DATA_TTL,
         }
@@ -135,10 +139,10 @@ class ScriptStatus(object):
         logging.info("notify_agregated, exit_status=<{0}>, exit_message=<{1}>".format(
             cls._exit_status, cls._exit_message))
         event = {
-            'host' : cls._hostname,
-            'service' : SERVICE_NAME,
-            'state' : cls._exit_status,
-            'description' : cls._exit_message,
+            'host': cls._hostname,
+            'service': SERVICE_NAME,
+            'state': cls._exit_status,
+            'description': cls._exit_message,
             'tags': cls._riemann_tags,
             'ttl': DATA_TTL,
         }
@@ -164,6 +168,7 @@ class ScriptStatus(object):
                 cls._exit_message += ' '
             cls._exit_message += exit_message
 
+
 class ScriptLock(object):
     #python lockfile is brain-damaged, we have to write our own class :/
     _fh = None
@@ -171,7 +176,7 @@ class ScriptLock(object):
 
     @classmethod
     def init(cls, file_path):
-        cls._file_path=file_path
+        cls._file_path = file_path
 
     @classmethod
     def aqquire(cls):
@@ -182,22 +187,24 @@ class ScriptLock(object):
             cls._fh = open(cls._file_path, 'w')
             #flock is nice because it is automatically released when the
             #process dies/terminates
-            fcntl.flock(tmp_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(cls._fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except IOError:
             if cls._fh:
-                tmp_fh.close()
+                cls._fh.close()
             raise RecoverableException("{0} ".format(cls._file_path) +
-            "is already locked by a different process or cannot be created.")
+                                       "is already locked by a different " +
+                                       "process or cannot be created.")
         cls._fh.write(str(os.getpid()))
         cls._fh.flush()
 
     @classmethod
     def release(cls):
-        if not _fh:
+        if not cls._fh:
             raise RecoverableException("Trying to release non-existant lock")
         cls._fh.close()
         cls._fh = None
         os.unlink(cls._file_path)
+
 
 def parse_command_line():
     parser = argparse.ArgumentParser(
@@ -226,118 +233,121 @@ def parse_command_line():
 
     return parser.parse_args()
 
+
 def find_cert(path):
     if not os.path.isdir(path):
         raise RecoverableException("Directory {0} does not exist".format(path))
     logging.debug("Scanning directory {0}".format(path))
     for root, sub_folders, files in os.walk(path):
         for file in files:
-            if len(file)>=5 and file[-4] == '.' and \
+            if len(file) >= 5 and file[-4] == '.' and \
                     file[-3:] in CERTIFICATE_EXTENSIONS:
-                yield os.path.join(root,file)
+                yield os.path.join(root, file)
+
 
 def get_cert_expiration(path):
     if path[-3:] in ['pem', 'crt', 'cer']:
         try:
             #Many bad things can happen here, but still - we can recover! :)
             with open(path, 'r') as fh:
-                cert_data=load_certificate(FILETYPE_PEM,fh.read())
+                cert_data = load_certificate(FILETYPE_PEM, fh.read())
                 expiry_date = cert_data.get_notAfter()
                 #Return datetime object:
                 return datetime.strptime(expiry_date, '%Y%m%d%H%M%SZ')
-        except Exception e:
-            msg="Script cannot parse certificate {0}: {1}".format(path,str(e))
+        except Exception as e:
+            msg = "Script cannot parse certificate {0}: {1}".format(path, str(e))
             logging.warning(msg)
             ScriptStatus.notify_immediate('unknown', msg)
     else:
         ScriptStatus.update('unknown',
-                "Certificate {0} is of unsupported type, ".format(path) +\
-                        "the script cannot check the expiry date.")
+                            "Certificate {0} is of unsupported type, ".format(path) +
+                            "the script cannot check the expiry date.")
 
     return None
 
+
 def main():
-    #  try:
-    args = parseCommandline()
+    try:
+        args = parse_command_line()
 
-    #Configure logging:
-    logger = logging.getLogger()
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    if args.std_err:
-        handler = logging.StreamHandler()
-    else:
-        handler = logging.handlers.SysLogHandler(address='/dev/log')
-    logger.addHandler(handler)
+        #Configure logging:
+        logger = logging.getLogger()
+        if args.verbose:
+            logger.setLevel(logging.DEBUG)
+        if args.std_err:
+            handler = logging.StreamHandler()
+        else:
+            handler = logging.handlers.SysLogHandler(address='/dev/log')
+        logger.addHandler(handler)
 
-    logger.debug("Command line arguments: {0}".format(args))
+        logger.debug("Command line arguments: {0}".format(args))
 
-    #FIXME - Remamber to correctly configure syslog, otherwise rsyslog will
-    #discard messages
-    ScriptConfiguration.load_config(args.config_file)
+        #FIXME - Remamber to correctly configure syslog, otherwise rsyslog will
+        #discard messages
+        ScriptConfiguration.load_config(args.config_file)
 
-    ScriptStatus.initialize(
-        riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
-        riemann_tags=ScriptConfiguration.get_val("riemann_tags"),
+        ScriptStatus.initialize(
+            riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
+            riemann_tags=ScriptConfiguration.get_val("riemann_tags"),
         )
 
-    # verify the configuration
-    msg = []
-    if ScriptConfiguration.get_val('warn_treshold') <= 0:
-        msg.append('Certificate expiration warn threshold should be > 0.')
-    if ScriptConfiguration.get_val('critical_treshold') <= 0:
-        msg.append('Certificate expiration critical threshold should be > 0.')
-    if ScriptConfiguration.get_val('critical_treshold') >= ScriptConfiguration.get_val(
-            'warn_treshold'):
-        msg.append('Warninig threshold should be greater than critical treshold.')
+        # verify the configuration
+        msg = []
+        if ScriptConfiguration.get_val('warn_treshold') <= 0:
+            msg.append('Certificate expiration warn threshold should be > 0.')
+        if ScriptConfiguration.get_val('critical_treshold') <= 0:
+            msg.append('Certificate expiration critical threshold should be > 0.')
+        if ScriptConfiguration.get_val('critical_treshold') >= ScriptConfiguration.get_val(
+                'warn_treshold'):
+            msg.append('Warninig threshold should be greater than critical treshold.')
 
-    #if there are problems with thresholds then there is no point in continuing:
-    ScriptStatus.notify_immediate('unknown', "Configuration file contains errors" +\
-            msg)
+        #if there are problems with thresholds then there is no point in continuing:
+        ScriptStatus.notify_immediate('unknown', "Configuration file contains errors" +
+                                      msg)
 
-    ScriptLock.init(args.lock_file)
-    ScriptLock.aqquire()
+        ScriptLock.init(args.lock_file)
+        ScriptLock.aqquire()
 
-    for certfile in find_cert(ScriptConfiguration.get_val("scan_dir")):
-        cert_expiration = get_cert_expiration(certfile)
-        if cert_expiration is None:
-            continue
-        now = datetime.now()
-        time_left = cert_expiration - now #timedelta object
-        if time_left.days < 0:
-            ScriptStatus.update('critical',
-                    "Certificate {0} expired {1} days ago.".format(
-                        certfile,abs(time_left.days)))
-        elif time_left.days == 0:
-            ScriptStatus.update('critical',
-                    "Certificate {0} expires today.".format(certfile))
-        elif time_left.days < ScriptConfiguration.get_val("crit_treshold"):
-            ScriptStatus.update('critical',
-                    "Certificate {0} is about to expire in {1} days.".format(
-                        certfile,time_left.days))
-        elif time_left.days < ScriptConfiguration.get_val("warn_treshold"):
-            ScriptStatus.update('warn',
-                    "Certificate {0} is about to expire in {1} days.".format(
-                        certfile,time_left.days))
-        else:
-            logger.info("{0} expires in {1} days - OK!".format(
-                certfile, time_left.days))
+        for certfile in find_cert(ScriptConfiguration.get_val("scan_dir")):
+            cert_expiration = get_cert_expiration(certfile)
+            if cert_expiration is None:
+                continue
+            now = datetime.now()
+            time_left = cert_expiration - now  # timedelta object
+            if time_left.days < 0:
+                ScriptStatus.update('critical',
+                                    "Certificate {0} expired {1} days ago.".format(
+                                    certfile, abs(time_left.days)))
+            elif time_left.days == 0:
+                ScriptStatus.update('critical',
+                                    "Certificate {0} expires today.".format(certfile))
+            elif time_left.days < ScriptConfiguration.get_val("crit_treshold"):
+                ScriptStatus.update('critical',
+                                    "Certificate {0} is about to expire in {1} days.".format(
+                                    certfile, time_left.days))
+            elif time_left.days < ScriptConfiguration.get_val("warn_treshold"):
+                ScriptStatus.update('warn',
+                                    "Certificate {0} is about to expire in {1} days.".format(
+                                    certfile, time_left.days))
+            else:
+                logger.info("{0} expires in {1} days - OK!".format(
+                    certfile, time_left.days))
 
-    ScriptStatus.notify_agregated()
-    ScriptLock.release()
-    sys.exit(0)
+        ScriptStatus.notify_agregated()
+        ScriptLock.release()
+        sys.exit(0)
 
-  except RecoverableException as e:
-    msg=str(e)
-    logging.critical(msg)
-    ScriptStatus.notify_immediate('unknown', msg)
-    sys.exit(1)
-  except Exception as e:
-    msg="Exception occured: {0}".format(e.__class__.__name__)
-    logging.critical(msg)
-    extra = "Traceback: {0}".format(traceback.format_exc())
-    logging.critical(extra)
-    sys.exit(1)
+    except RecoverableException as e:
+        msg = str(e)
+        logging.critical(msg)
+        ScriptStatus.notify_immediate('unknown', msg)
+        sys.exit(1)
+    except Exception as e:
+        msg = "Exception occured: {0}".format(e.__class__.__name__)
+        logging.critical(msg)
+        extra = "Traceback: {0}".format(traceback.format_exc())
+        logging.critical(extra)
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
