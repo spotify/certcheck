@@ -1,0 +1,9 @@
+class { 'puphpet::dotfiles': }
+
+{% if server.packages is not empty %}
+package { [
+{{ format.explode_and_quote(server.packages)|raw }}
+  ]:
+  ensure  => 'installed',
+}
+{% endif %}
