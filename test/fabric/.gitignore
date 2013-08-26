@@ -2,3 +2,4 @@
 *.der.key
 *.der
 filelock.pid
+*.crt
