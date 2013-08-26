@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import unittest
+import modules.file_paths as paths
 
 
 def create_test_cert(days, path, is_der=False):
@@ -29,7 +30,8 @@ def create_test_cert(days, path, is_der=False):
                              stderr=subprocess.STDOUT)
     child_stdout, child_stderr = child.communicate()
     if child.returncode != 0:
-        print("Failed to execute opensssl command:\n\t{0}\n".format(' '.join(openssl_cmd)))
+        print("Failed to execute opensssl command:\n\t{0}\n".format(
+              ' '.join(openssl_cmd)))
         print("Stdout+Stderr:\n{0}".format(child_stdout))
         sys.exit(1)
     else:
@@ -41,26 +43,18 @@ def main():
 
     if major == 2 and minor < 7:
         print("In order to run tests you need at least Python 2.7")
-        sys.exit(0)
+        sys.exit(1)
 
     if major == 3:
         print("Tests were not tested on Python 3.X, use at your own risk")
-        sys.exit(0)
+        sys.exit(1)
 
     #Prepare the test certificate tree:
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    fabric_base_dir = os.path.join(script_dir, 'fabric/sample_cert_dir/puphpet')
-    create_test_cert(-3, os.path.join(fabric_base_dir,
-                                    'web/assets/js/expired_3_days.pem'))
-    create_test_cert(6, os.path.join(fabric_base_dir,
-                                    'tests/Puphpet/Tests/Controller/expire_6_days.pem'))
-    create_test_cert(21, os.path.join(fabric_base_dir,
-                                    'src/Puphpet/Controller/expire_21_days.pem'))
-    create_test_cert(41, os.path.join(fabric_base_dir,
-                                    'src/Puphpet/Controller/expire_41_days.pem'))
-    create_test_cert(41, os.path.join(fabric_base_dir,
-                                    'src/Puphpet/Domain/File/expire_41_days.der',
-                                    ), is_der=True,)
+    create_test_cert(-3, paths.EXPIRED_3_DAYS)
+    create_test_cert(6, paths.EXPIRE_6_DAYS)
+    create_test_cert(21, paths.EXPIRE_21_DAYS)
+    create_test_cert(41, paths.EXPIRE_41_DAYS)
+    create_test_cert(41, paths.EXPIRE_41_DAYS_DER, is_der=True,)
 
     #Include the script in PYTHONPATH
     sys.path.append(os.path.realpath(os.getcwd() + '/../bin/'))
