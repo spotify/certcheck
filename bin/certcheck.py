@@ -15,7 +15,7 @@ import argparse
 import fcntl
 import json
 import logging
-import logging.handlers
+import logging.handlers as lh
 import os
 import socket
 import sys
@@ -84,7 +84,7 @@ class ScriptStatus(object):
 
         if not riemann_tags:
             logging.error('There should be at least one riemann tag defined.')
-            return
+            return  # Should it sys.exit or just return ??
         for riemann_host in riemann_hosts:
             try:
                 host, port = riemann_host.split(':')
@@ -114,6 +114,11 @@ class ScriptStatus(object):
         """
         Imediatelly send given data to Riemann
         """
+        if exit_status not in cls._STATES:
+            logging.error("Trying to issue an immediate notification" +
+                          "with malformed exit_status: " + exit_status)
+            return
+
         logging.info("notify_immediate, " +
                      "exit_status=<{0}>, exit_message=<{1}>".format(
                      exit_status, exit_message))
@@ -151,10 +156,13 @@ class ScriptStatus(object):
         """
         Accumullate a small bit of data in class fields
         """
+        if exit_status not in cls._STATES:
+            logging.error("Trying to do the status update" +
+                          "with malformed exit_status: " + exit_status)
+            return
+
         logging.debug("updating script status, exit_status=<{0}>, exit_message=<{1}>".format(
             exit_status, exit_message))
-        if exit_status not in cls._STATES:
-            logging.error("{0} is not a valid state, aborting!".format(exit_status))
         if cls._exit_status is None:
             cls._exit_status = exit_status
         if cls._STATES[cls._exit_status] < cls._STATES[exit_status]:
@@ -253,7 +261,7 @@ def get_cert_expiration(path):
                 return datetime.strptime(expiry_date, '%Y%m%d%H%M%SZ')
         except Exception as e:
             msg = "Script cannot parse certificate {0}: {1}".format(path, str(e))
-            logging.warning(msg)
+            logging.warn(msg)
             ScriptStatus.notify_immediate('unknown', msg)
     else:
         ScriptStatus.update('unknown',
@@ -268,13 +276,16 @@ def main():
         args = parse_command_line()
 
         #Configure logging:
+        fmt = logging.Formatter('%(filename)s[%(process)d] %(levelname)s: %(message)s')
         logger = logging.getLogger()
         if args.verbose:
             logger.setLevel(logging.DEBUG)
         if args.std_err:
             handler = logging.StreamHandler()
         else:
-            handler = logging.handlers.SysLogHandler(address='/dev/log')
+            handler = lh.SysLogHandler(address='/dev/log',
+                                       facility=lh.SysLogHandler.LOG_USER)
+        handler.setFormatter(fmt)
         logger.addHandler(handler)
 
         logger.debug("Command line arguments: {0}".format(args))
@@ -291,25 +302,30 @@ def main():
         # verify the configuration
         msg = []
         if ScriptConfiguration.get_val('warn_treshold') <= 0:
-            msg.append('Certificate expiration warn threshold should be > 0.')
+            msg.append('certificate expiration warn threshold should be > 0.')
         if ScriptConfiguration.get_val('critical_treshold') <= 0:
-            msg.append('Certificate expiration critical threshold should be > 0.')
+            msg.append('certificate expiration critical threshold should be > 0.')
         if ScriptConfiguration.get_val('critical_treshold') >= ScriptConfiguration.get_val(
                 'warn_treshold'):
-            msg.append('Warninig threshold should be greater than critical treshold.')
+            msg.append('warninig threshold should be greater than critical treshold.')
 
         #if there are problems with thresholds then there is no point in continuing:
-        ScriptStatus.notify_immediate('unknown', "Configuration file contains errors: " +
-                                      msg)
+        if msg:
+            ScriptStatus.notify_immediate('unknown',
+                                          "Configuration file contains errors: " +
+                                          ','.join(msg))
 
-        ScriptLock.init(args.lock_file)
+        ScriptLock.init(ScriptConfiguration.get_val('lockfile'))
         ScriptLock.aqquire()
 
         for certfile in find_cert(ScriptConfiguration.get_val("scan_dir")):
             cert_expiration = get_cert_expiration(certfile)
             if cert_expiration is None:
                 continue
-            now = datetime.now()
+            # -3 days is in fact -4 days, 23:59:58.817181
+            # so we compensate and round up
+            # additionally, openssl uses utc dates
+            now = datetime.utcnow() - timedelta(days=1)
             time_left = cert_expiration - now  # timedelta object
             if time_left.days < 0:
                 ScriptStatus.update('critical',
