@@ -1,9 +1,0 @@
-cache/*.pp
-config/prod.yml
-log
-tests/codeCoverage
-web/coverage
-phpunit.xml
-twig.cache
-/vendor
-.idea
