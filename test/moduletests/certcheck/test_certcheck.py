@@ -13,6 +13,7 @@ import mock
 import os
 import time
 import unittest
+import sys
 
 #Local import
 import certcheck
@@ -205,9 +206,9 @@ class TestCertCheck(unittest.TestCase):
                                           'state': 'warn',
                                           'host': 'mop',
                                           'ttl': 90000}
-                                          )
+                                         )
         #This call should be issued to *both* connection mocks:
-        self.assertEqual(RiemannMock.mock_calls,[proper_call, proper_call])
+        self.assertEqual(RiemannMock.mock_calls, [proper_call, proper_call])
         RiemannMock.reset_mock()
 
         #update method shoul escalate only up:
@@ -217,19 +218,60 @@ class TestCertCheck(unittest.TestCase):
         certcheck.ScriptStatus.update('ok', "this is an informational message.")
 
         proper_call = mock.call().submit({'description':
-                                            'this is a warning message. ' +
-                                            'this is a not-rated message. ' +
-                                            'this is an informational message.',
+                                          'this is a warning message. ' +
+                                          'this is a not-rated message. ' +
+                                          'this is an informational message.',
                                           'service': 'certcheck',
                                           'tags': ['tag1', 'tag2'],
                                           'state': 'unknown',
                                           'host': 'mop',
                                           'ttl': 90000}
-                                          )
+                                         )
         #This call should be issued to *both* connection mocks:
         certcheck.ScriptStatus.notify_agregated()
-        self.assertEqual(RiemannMock.mock_calls,[proper_call, proper_call])
+        self.assertEqual(RiemannMock.mock_calls, [proper_call, proper_call])
         RiemannMock.reset_mock()
+
+    @mock.patch('sys.exit')
+    def test_command_line_parsing(self, SysExitMock):
+        old_args = sys.argv
+
+        #General parsing:
+        sys.argv = ['./certcheck.py', '-v', '-s', '-c', './certcheck.json']
+        parsed_cmdline = certcheck.parse_command_line()
+        self.assertEqual(parsed_cmdline, {'std_err': True,
+                                          'config_file': './certcheck.json',
+                                          'verbose': True
+                                          })
+
+        #Config file should be a mandatory argument:
+        sys.argv = ['./certcheck.py', ]
+        # Suppres warnings from argparse
+        with mock.patch('sys.stderr') as StderrMock:
+            parsed_cmdline = certcheck.parse_command_line()
+        SysExitMock.assert_called_once_with(2)
+
+        #Test default values:
+        sys.argv = ['./certcheck.py', '-c', './certcheck.json']
+        parsed_cmdline = certcheck.parse_command_line()
+        self.assertEqual(parsed_cmdline, {'std_err': False,
+                                          'config_file': './certcheck.json',
+                                          'verbose': False
+                                          })
+
+        sys.argv = old_args
+
+    @mock.patch('certcheck.sys.exit')
+    @mock.patch('certcheck.get_cert_expiration')
+    @mock.patch('certcheck.find_cert')
+    @mock.patch('certcheck.ScriptLock', autospec=True)
+    @mock.patch('certcheck.ScriptStatus', autospec=True)
+    @mock.patch('certcheck.ScriptConfiguration', autospec=True)
+    @mock.patch('certcheck.logging', autospec=True)
+    def test_script_logic(self, LoggingMock, ScriptConfigurationMock,
+                          ScriptStatusMock, ScriptLockMock, FindCertMock,
+                          CertExpirationMock, SysExitMock):
+        pass
 
 
 if __name__ == '__main__':

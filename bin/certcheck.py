@@ -9,7 +9,7 @@ from __future__ import with_statement
 #Imports:
 from OpenSSL.crypto import FILETYPE_PEM
 from OpenSSL.crypto import load_certificate
-from datetime import datetime
+from datetime import datetime, timedelta
 from eagleeye.riemann import Riemann
 import argparse
 import fcntl
@@ -236,7 +236,11 @@ def parse_command_line():
         required=False,
         help="Log to stderr instead of syslog")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    return {'std_err': args.std_err,
+            'verbose': args.verbose,
+            'config_file': args.config_file
+            }
 
 
 def find_cert(path):
@@ -271,16 +275,14 @@ def get_cert_expiration(path):
     return None
 
 
-def main():
+def main(config_file, std_err=False, verbose=True):
     try:
-        args = parse_command_line()
-
         #Configure logging:
         fmt = logging.Formatter('%(filename)s[%(process)d] %(levelname)s: %(message)s')
         logger = logging.getLogger()
-        if args.verbose:
+        if verbose:
             logger.setLevel(logging.DEBUG)
-        if args.std_err:
+        if std_err:
             handler = logging.StreamHandler()
         else:
             handler = lh.SysLogHandler(address='/dev/log',
@@ -288,11 +290,15 @@ def main():
         handler.setFormatter(fmt)
         logger.addHandler(handler)
 
-        logger.debug("Command line arguments: {0}".format(args))
+        logger.debug("Command line arguments:" +
+                     "config_file={0}, ".format(config_file) +
+                     "std_err={0}, ".format(std_err) +
+                     "verbose={0}, ".format(verbose)
+                     )
 
         #FIXME - Remamber to correctly configure syslog, otherwise rsyslog will
         #discard messages
-        ScriptConfiguration.load_config(args.config_file)
+        ScriptConfiguration.load_config(config_file)
 
         ScriptStatus.initialize(
             riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
@@ -314,6 +320,7 @@ def main():
             ScriptStatus.notify_immediate('unknown',
                                           "Configuration file contains errors: " +
                                           ','.join(msg))
+            sys.exit(1)
 
         ScriptLock.init(ScriptConfiguration.get_val('lockfile'))
         ScriptLock.aqquire()
@@ -363,4 +370,6 @@ def main():
         sys.exit(1)
 
 if __name__ == '__main__':
-    main()
+    args_dict = parse_command_line()
+
+    main(**args_dict)
