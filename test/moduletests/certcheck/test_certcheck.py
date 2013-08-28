@@ -74,7 +74,6 @@ class TestCertCheck(unittest.TestCase):
         #Test a good certificate:
         expiry_time = certcheck.get_cert_expiration(paths.EXPIRE_21_DAYS) - now
         self.assertEqual(expiry_time.days, 21)
-        #import ipdb; ipdb.set_trace() # BREAKPOINT
 
         #Test a DER certificate:
         certcheck.get_cert_expiration(paths.EXPIRE_41_DAYS_DER)
@@ -247,7 +246,7 @@ class TestCertCheck(unittest.TestCase):
         #Config file should be a mandatory argument:
         sys.argv = ['./certcheck.py', ]
         # Suppres warnings from argparse
-        with mock.patch('sys.stderr') as StderrMock:
+        with mock.patch('sys.stderr'):
             parsed_cmdline = certcheck.parse_command_line()
         SysExitMock.assert_called_once_with(2)
 
@@ -271,8 +270,124 @@ class TestCertCheck(unittest.TestCase):
     def test_script_logic(self, LoggingMock, ScriptConfigurationMock,
                           ScriptStatusMock, ScriptLockMock, FindCertMock,
                           CertExpirationMock, SysExitMock):
-        pass
 
+        #Fake configuration data:
+        def script_conf_factory(**kwargs):
+            good_configuration = {"warn_treshold": 30,
+                                "critical_treshold": 15,
+                                "riemann_hosts": ["127.0.0.1:1234", "127.0.0.1:5678"],
+                                "riemann_tags": ["abc", "def"],
+                                "scan_dir": "./fake_cert_dir/",
+                                "lockfile": "./fake_lock.pid",
+                                }
+            def func(key):
+                config = good_configuration.copy()
+                config.update(kwargs)
+                self.assertIn(key, config)
+                return config[key]
+
+            return func
+
+        #Fake certificate expiration data:
+        def fake_cert_expiration(path):
+            data = {"./bad_cert.crt": datetime.utcnow() - timedelta(days=4),
+                    "./good_cert.crt": datetime.utcnow() + timedelta(days=41)
+                    }
+            self.assertIn(path, data)
+            return data[path]
+        CertExpirationMock.side_effect = fake_cert_expiration
+
+        # A bit of a workaround, but we cannot simply call sys.exit
+        def terminate_script(exit_status):
+            #import ipdb; ipdb.set_trace() # BREAKPOINT
+            raise SystemExit(exit_status)
+        SysExitMock.side_effect = terminate_script
+
+        #Provide fake data for the script:
+        def fake_certname(cert_dir):
+            data = {"good_certs": iter(['./good_cert.crt']),
+                    "bad_certs": iter(['./bad_cert.crt'])
+                    }
+            self.assertIn(cert_dir, data)
+            return data[cert_dir]
+        FindCertMock.side_effect = fake_certname
+
+        # Test if ScriptStatus gets properly initialized
+        # and whether warn > crit condition is checked is
+        # being checked as well
+        def script_config_file(key):
+            config_bad = good_configuration.copy()
+            config_bad["warn_treshold"] = 7
+            self.assertIn(key, config_bad)
+            return config_bad[key]
+        certcheck.ScriptConfiguration.get_val.side_effect = script_conf_factory(
+                                                                warn_treshold=7)
+
+        with self.assertRaises(SystemExit) as e:
+            certcheck.main(config_file='./certcheck.conf')
+        self.assertEqual(e.exception.code, 1)
+
+        proper_init_call = dict(riemann_hosts=['127.0.0.1:1234',
+                                               '127.0.0.1:5678'],
+                                riemann_tags=['abc', 'def'])
+        self.assertTrue(ScriptConfigurationMock.load_config.called)
+        self.assertTrue(ScriptStatusMock.notify_immediate.called)
+        certcheck.ScriptStatus.initialize.assert_called_once_with(**proper_init_call)
+
+        #this time test only the negative warn threshold:
+        certcheck.ScriptConfiguration.get_val.side_effect = script_conf_factory(
+                                                                warn_treshold=-30)
+
+        ScriptStatusMock.notify_immediate.reset_mock()
+        with self.assertRaises(SystemExit) as e:
+            certcheck.main(config_file='./certcheck.conf')
+        self.assertTrue(ScriptStatusMock.notify_immediate.called)
+        self.assertEqual(e.exception.code, 1)
+
+        #this time test only the crit threshold == 0 condition check:
+        certcheck.ScriptConfiguration.get_val.side_effect = script_conf_factory(
+                                                            critical_treshold=-1)
+
+        ScriptStatusMock.notify_immediate.reset_mock()
+        with self.assertRaises(SystemExit) as e:
+            certcheck.main(config_file='./certcheck.conf')
+        self.assertTrue(ScriptStatusMock.notify_immediate.called)
+        self.assertEqual(e.exception.code, 1)
+
+        #test if expired cert is properly handled:
+        ScriptStatusMock.notify_immediate.reset_mock()
+
+        certcheck.ScriptConfiguration.get_val.side_effect = script_conf_factory(
+                                                            scan_dir='bad_certs')
+        with self.assertRaises(SystemExit) as e:
+            certcheck.main(config_file='./certcheck.conf')
+        self.assertEqual(e.exception.code, 0)
+        self.assertTrue(ScriptStatusMock.update.called)
+        self.assertEqual(ScriptStatusMock.update.call_args[0][0], 'critical')
+        self.assertTrue(ScriptLockMock.aqquire.called)
+        self.assertTrue(ScriptLockMock.release.called)
+        self.assertTrue(ScriptStatusMock.notify_agregated.called)
+        self.assertFalse(ScriptStatusMock.notify_immediate.called)
+
+        #test if good certificate is properly handled:
+        ScriptStatusMock.notify_immediate.reset_mock()
+        ScriptStatusMock.update.reset_mock()
+        ScriptStatusMock.notify_agregated.reset_mock()
+
+        certcheck.ScriptConfiguration.get_val.side_effect = script_conf_factory(
+                                                            scan_dir='good_certs')
+        with self.assertRaises(SystemExit) as e:
+            certcheck.main(config_file='./certcheck.conf')
+        self.assertEqual(e.exception.code, 0)
+        self.assertTrue(ScriptLockMock.aqquire.called)
+        self.assertTrue(ScriptLockMock.release.called)
+        self.assertFalse(ScriptStatusMock.notify_immediate.called)
+        self.assertTrue(ScriptStatusMock.notify_agregated.called)
+        #All certs were ok, so a default message should be send to Rieman
+        self.assertFalse(ScriptStatusMock.update.called)
+
+        # FIXME warn_expire and crit_expire certs should be checked here as
+        # well but I left it as an exercise to the reader.
 
 if __name__ == '__main__':
     unittest.main()
