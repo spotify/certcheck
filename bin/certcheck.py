@@ -71,7 +71,7 @@ class ScriptStatus(object):
                'unknown': 3,
                }
 
-    _exit_status = None
+    _exit_status = 'ok'
     _exit_message = ''
     _riemann_connections = []
     _riemann_tags = None
@@ -119,6 +119,11 @@ class ScriptStatus(object):
                           "with malformed exit_status: " + exit_status)
             return
 
+        if not exit_message:
+            logging.error("Trying to issue an immediate notification" +
+                          "without any message")
+            return
+
         logging.info("notify_immediate, " +
                      "exit_status=<{0}>, exit_message=<{1}>".format(
                      exit_status, exit_message))
@@ -138,8 +143,13 @@ class ScriptStatus(object):
         """
         Send all agregated data to Riemann
         """
+
+        if cls._exit_status == 'ok' and cls._exit_message == '':
+            cls._exit_message = 'All certificates are OK'
+
         logging.info("notify_agregated, exit_status=<{0}>, exit_message=<{1}>".format(
             cls._exit_status, cls._exit_message))
+
         event = {
             'host': cls._hostname,
             'service': SERVICE_NAME,
@@ -341,7 +351,7 @@ def main(config_file, std_err=False, verbose=True):
             elif time_left.days == 0:
                 ScriptStatus.update('critical',
                                     "Certificate {0} expires today.".format(certfile))
-            elif time_left.days < ScriptConfiguration.get_val("crit_treshold"):
+            elif time_left.days < ScriptConfiguration.get_val("critical_treshold"):
                 ScriptStatus.update('critical',
                                     "Certificate {0} is about to expire in {1} days.".format(
                                     certfile, time_left.days))
@@ -362,6 +372,9 @@ def main(config_file, std_err=False, verbose=True):
         logging.critical(msg)
         ScriptStatus.notify_immediate('unknown', msg)
         sys.exit(1)
+    except AssertionError as e:
+        #Unittest require it:
+        raise
     except Exception as e:
         msg = "Exception occured: {0}".format(e.__class__.__name__)
         logging.critical(msg)
