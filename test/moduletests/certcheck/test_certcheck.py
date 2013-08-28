@@ -274,12 +274,13 @@ class TestCertCheck(unittest.TestCase):
         #Fake configuration data:
         def script_conf_factory(**kwargs):
             good_configuration = {"warn_treshold": 30,
-                                "critical_treshold": 15,
-                                "riemann_hosts": ["127.0.0.1:1234", "127.0.0.1:5678"],
-                                "riemann_tags": ["abc", "def"],
-                                "scan_dir": "./fake_cert_dir/",
-                                "lockfile": "./fake_lock.pid",
-                                }
+                                  "critical_treshold": 15,
+                                  "riemann_hosts": ["127.0.0.1:1234", "127.0.0.1:5678"],
+                                  "riemann_tags": ["abc", "def"],
+                                  "scan_dir": "./fake_cert_dir/",
+                                  "lockfile": "./fake_lock.pid",
+                                  }
+
             def func(key):
                 config = good_configuration.copy()
                 config.update(kwargs)
@@ -299,7 +300,6 @@ class TestCertCheck(unittest.TestCase):
 
         # A bit of a workaround, but we cannot simply call sys.exit
         def terminate_script(exit_status):
-            #import ipdb; ipdb.set_trace() # BREAKPOINT
             raise SystemExit(exit_status)
         SysExitMock.side_effect = terminate_script
 
@@ -315,13 +315,8 @@ class TestCertCheck(unittest.TestCase):
         # Test if ScriptStatus gets properly initialized
         # and whether warn > crit condition is checked is
         # being checked as well
-        def script_config_file(key):
-            config_bad = good_configuration.copy()
-            config_bad["warn_treshold"] = 7
-            self.assertIn(key, config_bad)
-            return config_bad[key]
         certcheck.ScriptConfiguration.get_val.side_effect = script_conf_factory(
-                                                                warn_treshold=7)
+                                                            warn_treshold=7)
 
         with self.assertRaises(SystemExit) as e:
             certcheck.main(config_file='./certcheck.conf')
