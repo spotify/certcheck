@@ -15,17 +15,20 @@ import subprocess
 import os
 import sys
 
-#Include the script in PYTHONPATH
-sys.path.append(os.path.realpath(os.getcwd() + '/../bin/'))
+#Fix PYTHONPATH:
+pwd = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.abspath(pwd + '/../../../bin/'))
+sys.path.append(os.path.abspath(pwd + '/../../modules/'))
 
+#no everyone has spotify-mock8/mock installed:
 try:
     import spotify.util.mock8 as mock
 except ImportError:
     import mock
 
-#Local import
+#Local imports:
+import file_paths as paths
 import certcheck
-import modules.file_paths as paths
 
 
 class TestCertCheck(unittest.TestCase):
