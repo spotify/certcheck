@@ -9,11 +9,15 @@ from __future__ import with_statement
 
 #Global imports:
 from datetime import datetime, timedelta
-import mock
 import os
 import time
 import unittest
 import sys
+
+try:
+    import spotify.util.mock8 as mock
+except ImportError:
+    import mock
 
 #Local import
 import certcheck
