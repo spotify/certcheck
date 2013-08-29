@@ -14,4 +14,4 @@ setup(name='spotify-certcheck',
       url='https://wiki.spotify.net/wiki/Python_packaging_policy',
       description='Simplified certificate check',
       packages=['spotify_certcheck'],
-      scripts=['bin/certcheck'])
+      scripts=['bin/certcheck.py'])
