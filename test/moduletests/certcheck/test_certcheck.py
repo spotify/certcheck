@@ -9,10 +9,14 @@ from __future__ import with_statement
 
 #Global imports:
 from datetime import datetime, timedelta
-import os
 import time
 import unittest
+import subprocess
+import os
 import sys
+
+#Include the script in PYTHONPATH
+sys.path.append(os.path.realpath(os.getcwd() + '/../bin/'))
 
 try:
     import spotify.util.mock8 as mock
@@ -25,6 +29,41 @@ import modules.file_paths as paths
 
 
 class TestCertCheck(unittest.TestCase):
+    @staticmethod
+    def _create_test_cert(days, path, is_der=False):
+        openssl_cmd = ["/usr/bin/openssl", "req", "-x509", "-nodes",
+                    "-newkey", "rsa:1024",
+                    "-subj", "/C=SE/ST=Stockholm/L=Stockholm/CN=www.example.com"]
+
+        openssl_cmd.extend(["-days", str(days)])
+        openssl_cmd.extend(["-out", path])
+
+        if is_der:
+            openssl_cmd.extend(["-outform", "DER"])
+            openssl_cmd.extend(["-keyout", path + ".key"])
+        else:
+            openssl_cmd.extend(["-keyout", path])
+
+        child = subprocess.Popen(openssl_cmd, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+        child_stdout, child_stderr = child.communicate()
+        if child.returncode != 0:
+            print("Failed to execute opensssl command:\n\t{0}\n".format(
+                ' '.join(openssl_cmd)))
+            print("Stdout+Stderr:\n{0}".format(child_stdout))
+            sys.exit(1)
+        else:
+            print("Created test certificate {0}".format(os.path.basename(path)))
+
+    @classmethod
+    def setUpClass(cls):
+        #Prepare the test certificate tree:
+        cls._create_test_cert(-3, paths.EXPIRED_3_DAYS)
+        cls._create_test_cert(6, paths.EXPIRE_6_DAYS)
+        cls._create_test_cert(21, paths.EXPIRE_21_DAYS)
+        cls._create_test_cert(41, paths.EXPIRE_41_DAYS)
+        cls._create_test_cert(41, paths.EXPIRE_41_DAYS_DER, is_der=True,)
+
     @mock.patch('logging.error')
     @mock.patch('sys.exit')
     def test_config_file_parsing(self, SysExitMock, LoggingErrorMock):
