@@ -22,6 +22,6 @@ source =
 
 
 [html]
-directory = coverage_html_report
+directory = output_coverage_html
 
 [paths]
