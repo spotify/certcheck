@@ -10,10 +10,16 @@ from __future__ import with_statement
 #Global imports:
 from datetime import datetime, timedelta
 import time
-import unittest
+import sys
+
+major, minor, micro, releaselevel, serial = sys.version_info
+
+if major == 2 and minor < 7:
+    import unittest2 as unittest
+else:
+    import unittest
 import subprocess
 import os
-import sys
 
 #Fix PYTHONPATH:
 pwd = os.path.abspath(os.path.dirname(__file__))
