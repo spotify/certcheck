@@ -9,28 +9,26 @@ from __future__ import with_statement
 
 #Global imports:
 from datetime import datetime, timedelta
-import time
+import os
+import platform
+import subprocess
 import sys
-
+import time
 major, minor, micro, releaselevel, serial = sys.version_info
-
 if major == 2 and minor < 7:
     import unittest2 as unittest
 else:
     import unittest
-import subprocess
-import os
-
-#Fix PYTHONPATH:
-pwd = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.abspath(pwd + '/../../../bin/'))
-sys.path.append(os.path.abspath(pwd + '/../../modules/'))
-
 #no everyone has spotify-mock8/mock installed:
 try:
     import spotify.util.mock8 as mock
 except ImportError:
     import mock
+
+#To perform local imports first we need to fix PYTHONPATH:
+pwd = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.abspath(pwd + '/../../../bin/'))
+sys.path.append(os.path.abspath(pwd + '/../../modules/'))
 
 #Local imports:
 import file_paths as paths
@@ -41,8 +39,8 @@ class TestCertCheck(unittest.TestCase):
     @staticmethod
     def _create_test_cert(days, path, is_der=False):
         openssl_cmd = ["/usr/bin/openssl", "req", "-x509", "-nodes",
-                    "-newkey", "rsa:1024",
-                    "-subj", "/C=SE/ST=Stockholm/L=Stockholm/CN=www.example.com"]
+                       "-newkey", "rsa:1024",
+                       "-subj", "/C=SE/ST=Stockholm/L=Stockholm/CN=www.example.com"]
 
         openssl_cmd.extend(["-days", str(days)])
         openssl_cmd.extend(["-out", path])
@@ -54,7 +52,7 @@ class TestCertCheck(unittest.TestCase):
             openssl_cmd.extend(["-keyout", path])
 
         child = subprocess.Popen(openssl_cmd, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT)
+                                 stderr=subprocess.STDOUT)
         child_stdout, child_stderr = child.communicate()
         if child.returncode != 0:
             print("Failed to execute opensssl command:\n\t{0}\n".format(
@@ -255,7 +253,7 @@ class TestCertCheck(unittest.TestCase):
                                           'service': 'certcheck',
                                           'tags': ['tag1', 'tag2'],
                                           'state': 'warn',
-                                          'host': 'mop',
+                                          'host': platform.uname()[1],
                                           'ttl': 90000}
                                          )
         #This call should be issued to *both* connection mocks:
@@ -275,7 +273,7 @@ class TestCertCheck(unittest.TestCase):
                                           'service': 'certcheck',
                                           'tags': ['tag1', 'tag2'],
                                           'state': 'unknown',
-                                          'host': 'mop',
+                                          'host': platform.uname()[1],
                                           'ttl': 90000}
                                          )
         #This call should be issued to *both* connection mocks:
@@ -327,7 +325,8 @@ class TestCertCheck(unittest.TestCase):
         def script_conf_factory(**kwargs):
             good_configuration = {"warn_treshold": 30,
                                   "critical_treshold": 15,
-                                  "riemann_hosts": ["127.0.0.1:1234", "127.0.0.1:5678"],
+                                  "riemann_hosts": ["127.0.0.1:1234",
+                                                    "127.0.0.1:5678"],
                                   "riemann_tags": ["abc", "def"],
                                   "scan_dir": "./fake_cert_dir/",
                                   "lockfile": "./fake_lock.pid",
