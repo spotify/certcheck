@@ -82,7 +82,14 @@ class ScriptStatus(object):
     def _send_data(cls, event):
         for riemann_connection in cls._riemann_connections:
             if not cls._debug:
+                try:
                     riemann_connection.submit(event)
+                except Exception as e:
+                    logging.error("Failed to send event to Rieman host: " +
+                                  "{0}".format(str(e))
+                                  )
+                    logging.error("traceback: {0}".format(traceback.format_exc()))
+                    continue
             else:
                 logging.debug('Event {0}'.format(str(event)) +
                               'would have been sent using riemann conn {1}'.format(
