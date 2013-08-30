@@ -76,11 +76,24 @@ class ScriptStatus(object):
     _riemann_connections = []
     _riemann_tags = None
     _hostname = ''
+    _debug = None
 
     @classmethod
-    def initialize(cls, riemann_hosts, riemann_tags):
+    def _send_data(cls, event):
+        for riemann_connection in cls._riemann_connections:
+            if not cls._debug:
+                    riemann_connection.submit(event)
+            else:
+                logging.debug('Event {0}'.format(str(event)) +
+                              'would have been sent using riemann conn {1}'.format(
+                                  str(riemann_connection))
+                              )
+
+    @classmethod
+    def initialize(cls, riemann_hosts, riemann_tags, debug=False):
         cls._riemann_tags = riemann_tags
         cls._hostname = socket.gethostname()
+        cls._debug = debug
 
         if not riemann_tags:
             logging.error('There should be at least one riemann tag defined.')
@@ -135,8 +148,8 @@ class ScriptStatus(object):
             'tags': cls._riemann_tags,
             'ttl': DATA_TTL,
         }
-        for riemann_connection in cls._riemann_connections:
-            riemann_connection.submit(event)
+
+        cls._send_data(event)
 
     @classmethod
     def notify_agregated(cls):
@@ -158,8 +171,8 @@ class ScriptStatus(object):
             'tags': cls._riemann_tags,
             'ttl': DATA_TTL,
         }
-        for riemann_connection in cls._riemann_connections:
-            riemann_connection.submit(event)
+
+        cls._send_data(event)
 
     @classmethod
     def update(cls, exit_status, exit_message):
@@ -245,6 +258,11 @@ def parse_command_line():
         action='store_true',
         required=False,
         help="Log to stderr instead of syslog")
+    parser.add_argument(
+        "-d", "--dont-send",
+        action='store_true',
+        required=False,
+        help="Log to stderr instead of syslog")
 
     args = parser.parse_args()
     return {'std_err': args.std_err,
@@ -286,7 +304,7 @@ def get_cert_expiration(path):
     return None
 
 
-def main(config_file, std_err=False, verbose=True):
+def main(config_file, std_err=False, verbose=True, dont_send=False):
     try:
         #Configure logging:
         fmt = logging.Formatter('%(filename)s[%(process)d] %(levelname)s: %(message)s')
@@ -314,6 +332,7 @@ def main(config_file, std_err=False, verbose=True):
         ScriptStatus.initialize(
             riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
             riemann_tags=ScriptConfiguration.get_val("riemann_tags"),
+            debug=dont_send,
         )
 
         # verify the configuration

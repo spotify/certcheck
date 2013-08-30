@@ -379,7 +379,8 @@ class TestCertCheck(unittest.TestCase):
 
         proper_init_call = dict(riemann_hosts=['127.0.0.1:1234',
                                                '127.0.0.1:5678'],
-                                riemann_tags=['abc', 'def'])
+                                riemann_tags=['abc', 'def'],
+                                debug=False)
         self.assertTrue(ScriptConfigurationMock.load_config.called)
         self.assertTrue(ScriptStatusMock.notify_immediate.called)
         certcheck.ScriptStatus.initialize.assert_called_once_with(**proper_init_call)
