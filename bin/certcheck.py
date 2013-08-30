@@ -90,7 +90,7 @@ class ScriptStatus(object):
                               )
 
     @classmethod
-    def initialize(cls, riemann_hosts, riemann_tags, debug=False):
+    def initialize(cls, riemann_hosts, riemann_port, riemann_tags, debug=False):
         cls._riemann_tags = riemann_tags
         cls._hostname = socket.gethostname()
         cls._debug = debug
@@ -100,15 +100,7 @@ class ScriptStatus(object):
             return  # Should it sys.exit or just return ??
         for riemann_host in riemann_hosts:
             try:
-                host, port = riemann_host.split(':')
-                port = int(port)
-            except ValueError:
-                logging.error("{0} is not a correct Riemann hostname.".format(
-                    riemann_host) + " Please try hostname:port or ipaddress:port")
-                continue
-
-            try:
-                riemann_connection = Riemann(host, port)
+                riemann_connection = Riemann(riemann_host, riemann_port)
             except Exception as e:
                 logging.error("Failed to connect to Rieman host {0}: {1}, ".format(
                     riemann_host, str(e)) + "address has been exluded from the list.")
@@ -329,6 +321,7 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
 
         ScriptStatus.initialize(
             riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
+            riemann_port=ScriptConfiguration.get_val("riemann_port"),
             riemann_tags=ScriptConfiguration.get_val("riemann_tags"),
             debug=dont_send,
         )
