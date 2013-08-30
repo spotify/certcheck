@@ -186,8 +186,6 @@ class ScriptStatus(object):
 
         logging.debug("updating script status, exit_status=<{0}>, exit_message=<{1}>".format(
             exit_status, exit_message))
-        if cls._exit_status is None:
-            cls._exit_status = exit_status
         if cls._STATES[cls._exit_status] < cls._STATES[exit_status]:
             cls._exit_status = exit_status
         # ^ we only escalate up...

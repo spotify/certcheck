@@ -100,7 +100,7 @@ class TestCertCheck(unittest.TestCase):
         #Key not in config file:
         self.assertEqual(certcheck.ScriptConfiguration.get_val("not_a_field"), None)
 
-    def test_certificate_searching(self, *unused):
+    def test_certificate_searching(self):
         certs = certcheck.find_cert(paths.CERTIFICATES_DIR)
         self.assertEqual(set(certs), paths.ALL_CERTS_SET)
 
