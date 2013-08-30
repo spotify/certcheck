@@ -259,7 +259,7 @@ def parse_command_line():
         "-d", "--dont-send",
         action='store_true',
         required=False,
-        help="Log to stderr instead of syslog")
+        help="Do not send data to Riemann [use for debugging]")
 
     args = parser.parse_args()
     return {'std_err': args.std_err,
