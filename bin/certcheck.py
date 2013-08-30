@@ -261,6 +261,7 @@ def find_cert(path):
         for file in files:
             if len(file) >= 5 and file[-4] == '.' and \
                     file[-3:] in CERTIFICATE_EXTENSIONS:
+                logging.debug("Certificate found: {0}".format(file))
                 yield os.path.join(root, file)
 
 
