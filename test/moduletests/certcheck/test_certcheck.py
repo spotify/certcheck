@@ -193,22 +193,14 @@ class TestCertCheck(unittest.TestCase):
     @mock.patch('certcheck.Riemann')
     def test_script_status(self, RiemannMock, LoggingErrorMock, LoggingInfoMock):
         #There should be at least one tag defined:
-        certcheck.ScriptStatus.initialize([], [])
+        certcheck.ScriptStatus.initialize(riemann_hosts=[], riemann_port=1234,
+                                          riemann_tags=[])
         self.assertTrue(LoggingErrorMock.called)
         LoggingErrorMock.reset_mock()
 
         #There should be at least one Riemann host defined:
-        certcheck.ScriptStatus.initialize([], ['tag1', 'tag2'])
-        self.assertTrue(LoggingErrorMock.called)
-        LoggingErrorMock.reset_mock()
-
-        #Riemann hosts should be in ip/hostname:port format:
-        certcheck.ScriptStatus.initialize(['notahostname'], ['tag1', 'tag2'])
-        self.assertTrue(LoggingErrorMock.called)
-        LoggingErrorMock.reset_mock()
-
-        certcheck.ScriptStatus.initialize(['notahostname:not_an_integer'],
-                                          ['tag1', 'tag2'])
+        certcheck.ScriptStatus.initialize(riemann_hosts=[], riemann_port=1234,
+                                          riemann_tags=['tag1', 'tag2'])
         self.assertTrue(LoggingErrorMock.called)
         LoggingErrorMock.reset_mock()
 
@@ -218,8 +210,9 @@ class TestCertCheck(unittest.TestCase):
 
         RiemannMock.side_effect = side_effect
 
-        certcheck.ScriptStatus.initialize(['hostname:1234'],
-                                          ['tag1', 'tag2'])
+        certcheck.ScriptStatus.initialize(riemann_hosts=['hostname'],
+                                          riemann_port=1234,
+                                          riemann_tags=['tag1', 'tag2'])
         self.assertTrue(LoggingErrorMock.called)
         LoggingErrorMock.reset_mock()
 
@@ -236,11 +229,12 @@ class TestCertCheck(unittest.TestCase):
         LoggingErrorMock.reset_mock()
 
         #Done with syntax checking, now initialize the class properly:
-        certcheck.ScriptStatus.initialize(['hostname1:123', 'hostname2:567'],
-                                          ['tag1', 'tag2'])
+        certcheck.ScriptStatus.initialize(riemann_hosts=['hostname1', 'hostname2'],
+                                          riemann_port=1234,
+                                          riemann_tags=['tag1', 'tag2'])
 
-        proper_calls = [mock.call('hostname1', 123),
-                        mock.call('hostname2', 567)]
+        proper_calls = [mock.call('hostname1', 1234),
+                        mock.call('hostname2', 1234)]
         RiemannMock.assert_has_calls(proper_calls)
         RiemannMock.reset_mock()
 
@@ -325,8 +319,9 @@ class TestCertCheck(unittest.TestCase):
         def script_conf_factory(**kwargs):
             good_configuration = {"warn_treshold": 30,
                                   "critical_treshold": 15,
-                                  "riemann_hosts": ["127.0.0.1:1234",
-                                                    "127.0.0.1:5678"],
+                                  "riemann_hosts": ["127.0.0.1",
+                                                    "127.0.0.2"],
+                                  "riemann_port": 1234,
                                   "riemann_tags": ["abc", "def"],
                                   "scan_dir": "./fake_cert_dir/",
                                   "lockfile": "./fake_lock.pid",
@@ -377,8 +372,9 @@ class TestCertCheck(unittest.TestCase):
             certcheck.main(config_file='./certcheck.conf')
         self.assertEqual(e.exception.code, 1)
 
-        proper_init_call = dict(riemann_hosts=['127.0.0.1:1234',
-                                               '127.0.0.1:5678'],
+        proper_init_call = dict(riemann_hosts=['127.0.0.1',
+                                               '127.0.0.2'],
+                                riemann_port=1234,
                                 riemann_tags=['abc', 'def'],
                                 debug=False)
         self.assertTrue(ScriptConfigurationMock.load_config.called)
