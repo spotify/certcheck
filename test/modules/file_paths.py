@@ -27,10 +27,10 @@ ALL_CERTS_SET = set([EXPIRED_3_DAYS, EXPIRE_6_DAYS, EXPIRE_21_DAYS, EXPIRE_41_DA
                   EXPIRE_41_DAYS_DER, BROKEN_CERT])
 
 #Configfile location
-TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'certcheck.json')
-TEST_MALFORMED_CONFIG_FILE = op.join(_fabric_base_dir, 'malformed.json')
+TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'certcheck.yml')
+TEST_MALFORMED_CONFIG_FILE = op.join(_fabric_base_dir, 'malformed.yml')
 TEST_NONEXISTANT_CONFIG_FILE = op.join(_fabric_base_dir,
-                                       'certcheck.json.nonexistant')
+                                       'certcheck.yml.nonexistant')
 
 #Test lockfile location:
 TEST_LOCKFILE = op.join(_fabric_base_dir, 'filelock.pid')

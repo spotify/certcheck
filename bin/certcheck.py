@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from eagleeye.riemann import Riemann
 import argparse
 import fcntl
-import json
+import yaml
 import logging
 import logging.handlers as lh
 import os
@@ -48,13 +48,13 @@ class ScriptConfiguration(object):
         """
         try:
             with open(file_path, 'r') as fh:
-                cls._config = json.load(fh)
+                cls._config = yaml.load(fh)
         except IOError as e:
             logging.error("Failed to open config file {0}: {1}".format(
                 file_path, e))
             sys.exit(1)
-        except ValueError as e:
-            logging.error("File {0} is not a proper json document: {1}".format(
+        except (yaml.parser.ParserError, ValueError) as e:
+            logging.error("File {0} is not a proper yaml document: {1}".format(
                 file_path, e))
             sys.exit(1)
 
