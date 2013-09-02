@@ -60,7 +60,7 @@ class ScriptConfiguration(object):
 
     @classmethod
     def get_val(cls, key):
-        return cls._config.get(key, None)
+        return cls._config[key]
 
 
 class ScriptStatus(object):
