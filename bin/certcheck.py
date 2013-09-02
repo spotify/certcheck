@@ -266,7 +266,8 @@ def parse_command_line():
     args = parser.parse_args()
     return {'std_err': args.std_err,
             'verbose': args.verbose,
-            'config_file': args.config_file
+            'config_file': args.config_file,
+            'dont_send': args.dont_send,
             }
 
 
