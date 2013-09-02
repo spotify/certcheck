@@ -81,7 +81,7 @@ class ScriptStatus(object):
     @classmethod
     def _send_data(cls, event):
         for riemann_connection in cls._riemann_connections:
-            logging.info('Sending event {0}'.format(str(event)) +
+            logging.debug('Sending event {0}'.format(str(event)) +
                          'using riemann conn {0}:{1}'.format(
                             riemann_connection.host, riemann_connection.port)
                          )
@@ -162,7 +162,7 @@ class ScriptStatus(object):
         if cls._exit_status == 'ok' and cls._exit_message == '':
             cls._exit_message = 'All certificates are OK'
 
-        logging.info("notify_agregated, exit_status=<{0}>, exit_message=<{1}>".format(
+        logging.debug("notify_agregated, exit_status=<{0}>, exit_message=<{1}>".format(
             cls._exit_status, cls._exit_message))
 
         event = {
@@ -295,7 +295,7 @@ def get_cert_expiration(path):
         except Exception as e:
             msg = "Script cannot parse certificate {0}: {1}".format(path, str(e))
             logging.warn(msg)
-            ScriptStatus.notify_immediate('unknown', msg)
+            ScriptStatus.update('unknown', msg)
     else:
         ScriptStatus.update('unknown',
                             "Certificate {0} is of unsupported type, ".format(path) +
