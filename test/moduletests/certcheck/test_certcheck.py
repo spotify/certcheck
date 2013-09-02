@@ -98,7 +98,8 @@ class TestCertCheck(unittest.TestCase):
         self.assertEqual(certcheck.ScriptConfiguration.get_val("warn_treshold"), 30)
 
         #Key not in config file:
-        self.assertEqual(certcheck.ScriptConfiguration.get_val("not_a_field"), None)
+        with self.assertRaises(KeyError):
+            certcheck.ScriptConfiguration.get_val("not_a_field")
 
     def test_certificate_searching(self):
         certs = certcheck.find_cert(paths.CERTIFICATES_DIR)
@@ -284,11 +285,12 @@ class TestCertCheck(unittest.TestCase):
         old_args = sys.argv
 
         #General parsing:
-        sys.argv = ['./certcheck.py', '-v', '-s', '-c', './certcheck.json']
+        sys.argv = ['./certcheck.py', '-v', '-s', '-d', '-c', './certcheck.json']
         parsed_cmdline = certcheck.parse_command_line()
         self.assertEqual(parsed_cmdline, {'std_err': True,
                                           'config_file': './certcheck.json',
-                                          'verbose': True
+                                          'verbose': True,
+                                          'dont_send': True,
                                           })
 
         #Config file should be a mandatory argument:
@@ -303,7 +305,8 @@ class TestCertCheck(unittest.TestCase):
         parsed_cmdline = certcheck.parse_command_line()
         self.assertEqual(parsed_cmdline, {'std_err': False,
                                           'config_file': './certcheck.json',
-                                          'verbose': False
+                                          'verbose': False,
+                                          'dont_send': False,
                                           })
 
         sys.argv = old_args
