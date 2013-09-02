@@ -250,8 +250,10 @@ class TestCertCheck(unittest.TestCase):
                                           'host': platform.uname()[1],
                                           'ttl': 90000}
                                          )
-        #This call should be issued to *both* connection mocks:
-        self.assertEqual(RiemannMock.mock_calls, [proper_call, proper_call])
+        # This call should be issued to *both* connection mocks, but we
+        # simplify things here a bit:
+        self.assertEqual(2, len([ x for x in RiemannMock.mock_calls if \
+                                                        x == proper_call]))
         RiemannMock.reset_mock()
 
         #update method shoul escalate only up:
@@ -270,9 +272,11 @@ class TestCertCheck(unittest.TestCase):
                                           'host': platform.uname()[1],
                                           'ttl': 90000}
                                          )
-        #This call should be issued to *both* connection mocks:
+        # This call should be issued to *both* connection mocks, but we
+        # simplify things here a bit:
         certcheck.ScriptStatus.notify_agregated()
-        self.assertEqual(RiemannMock.mock_calls, [proper_call, proper_call])
+        self.assertEqual(2, len([ x for x in RiemannMock.mock_calls if \
+                                                        x == proper_call]))
         RiemannMock.reset_mock()
 
     @mock.patch('sys.exit')

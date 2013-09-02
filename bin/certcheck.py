@@ -81,10 +81,10 @@ class ScriptStatus(object):
     @classmethod
     def _send_data(cls, event):
         for riemann_connection in cls._riemann_connections:
-            logging.notice('Sending event {0}'.format(str(event)) +
-                            'using riemann conn {1}'.format(
-                                str(riemann_connection))
-                            )
+            logging.info('Sending event {0}'.format(str(event)) +
+                         'using riemann conn {0}:{1}'.format(
+                            riemann_connection.host, riemann_connection.port)
+                         )
             if not cls._debug:
                 try:
                     riemann_connection.submit(event)
@@ -113,9 +113,8 @@ class ScriptStatus(object):
             try:
                 riemann_connection = Riemann(riemann_host, riemann_port)
             except Exception as e:
-                logging.error("Failed to connect to Rieman host {0}: {1}, ".format(
+                logging.exception("Failed to connect to Rieman host {0}: {1}, ".format(
                     riemann_host, str(e)) + "address has been exluded from the list.")
-                logging.error("traceback: {0}".format(traceback.format_exc()))
                 continue
 
             logging.debug("Connected to Riemann instance {0}".format(riemann_host))
@@ -136,11 +135,11 @@ class ScriptStatus(object):
             return
 
         if not exit_message:
-            logging.error("Trying to issue an immediate notification" +
-                          "without any message")
+            logging.error("Trying to issue an immediate" +
+                                            "notification without any message")
             return
 
-        logging.notice("notify_immediate, " +
+        logging.warning("notify_immediate, " +
                      "exit_status=<{0}>, exit_message=<{1}>".format(
                      exit_status, exit_message))
         event = {
@@ -312,6 +311,8 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         logger = logging.getLogger()
         if verbose:
             logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
         if std_err:
             handler = logging.StreamHandler()
         else:
@@ -407,9 +408,7 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         raise
     except Exception as e:
         msg = "Exception occured: {0}".format(e.__class__.__name__)
-        logging.critical(msg)
-        extra = "Traceback: {0}".format(traceback.format_exc())
-        logging.critical(extra)
+        logging.exception(msg)
         sys.exit(1)
 
 if __name__ == '__main__':
