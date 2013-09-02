@@ -1,0 +1,16 @@
+---
+lockfile: ./certcheck.lock
+warn_treshold: 30
+critical_treshold: 15
+riemann_hosts:
+  - 127.0.0.1
+  - 127.0.0.2
+riemann_port: 1234
+riemann_tags:
+  - abc
+  - def
+scan_dir: /home/vespian/work/git_repos/spotify-puppet/
+# sha1sum ./certificate_to_be_ignored
+# format - dict, hash as a key, and value as a comment
+ignored_certs:
+  f1e924ec1ae5cbac1f928e5c70be59f5221d8578: "filename - comment, comment"
