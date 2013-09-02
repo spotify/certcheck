@@ -81,6 +81,10 @@ class ScriptStatus(object):
     @classmethod
     def _send_data(cls, event):
         for riemann_connection in cls._riemann_connections:
+            logging.notice('Sending event {0}'.format(str(event)) +
+                            'using riemann conn {1}'.format(
+                                str(riemann_connection))
+                            )
             if not cls._debug:
                 try:
                     riemann_connection.submit(event)
@@ -90,11 +94,11 @@ class ScriptStatus(object):
                                   )
                     logging.error("traceback: {0}".format(traceback.format_exc()))
                     continue
+                else:
+                    logging.info("Event sent succesfully")
             else:
-                logging.debug('Event {0}'.format(str(event)) +
-                              'would have been sent using riemann conn {1}'.format(
-                                  str(riemann_connection))
-                              )
+                logging.debug('Debug flag set, I am performing no-op instead of'
+                              'real sent call')
 
     @classmethod
     def initialize(cls, riemann_hosts, riemann_port, riemann_tags, debug=False):
@@ -136,7 +140,7 @@ class ScriptStatus(object):
                           "without any message")
             return
 
-        logging.info("notify_immediate, " +
+        logging.notice("notify_immediate, " +
                      "exit_status=<{0}>, exit_message=<{1}>".format(
                      exit_status, exit_message))
         event = {
@@ -183,7 +187,7 @@ class ScriptStatus(object):
                           "with malformed exit_status: " + exit_status)
             return
 
-        logging.debug("updating script status, exit_status=<{0}>, exit_message=<{1}>".format(
+        logging.info("updating script status, exit_status=<{0}>, exit_message=<{1}>".format(
             exit_status, exit_message))
         if cls._STATES[cls._exit_status] < cls._STATES[exit_status]:
             cls._exit_status = exit_status
@@ -316,7 +320,7 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         handler.setFormatter(fmt)
         logger.addHandler(handler)
 
-        logger.debug("Command line arguments:" +
+        logger.info("Certcheck is starting, command line arguments:" +
                      "config_file={0}, ".format(config_file) +
                      "std_err={0}, ".format(std_err) +
                      "verbose={0}, ".format(verbose)
@@ -325,6 +329,14 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         #FIXME - Remamber to correctly configure syslog, otherwise rsyslog will
         #discard messages
         ScriptConfiguration.load_config(config_file)
+
+        logger.debug("Scandir is: " +
+                    "{0}".format(ScriptConfiguration.get_val("scan_dir")),
+                    ", warn_thresh is {0}".format(
+                        ScriptConfiguration.get_val('warn_treshold')),
+                    ", crit_trhesh is {0}".format(
+                        ScriptConfiguration.get_val('critical_treshold'))
+                    )
 
         ScriptStatus.initialize(
             riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
