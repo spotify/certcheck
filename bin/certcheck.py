@@ -13,13 +13,13 @@ from datetime import datetime, timedelta
 from eagleeye.riemann import Riemann
 import argparse
 import fcntl
-import yaml
+import hashlib
 import logging
 import logging.handlers as lh
 import os
 import socket
 import sys
-import traceback
+import yaml
 
 #Constants:
 LOCKFILE_LOCATION = './'+os.path.basename(__file__)+'.lock'
@@ -83,21 +83,21 @@ class ScriptStatus(object):
         for riemann_connection in cls._riemann_connections:
             logging.info('Sending event {0}, '.format(str(event)) +
                          'using riemann conn {0}:{1}'.format(
-                            riemann_connection.host, riemann_connection.port)
+                             riemann_connection.host, riemann_connection.port)
                          )
             if not cls._debug:
                 try:
                     riemann_connection.submit(event)
                 except Exception as e:
                     logging.exception("Failed to send event to Rieman host: " +
-                                  "{0}".format(str(e))
-                                  )
+                                      "{0}".format(str(e))
+                                      )
                     continue
                 else:
                     logging.info("Event sent succesfully")
             else:
                 logging.info('Debug flag set, I am performing no-op instead of '
-                              'real sent call')
+                             'real sent call')
 
     @classmethod
     def initialize(cls, riemann_hosts, riemann_port, riemann_tags, debug=False):
@@ -135,12 +135,12 @@ class ScriptStatus(object):
 
         if not exit_message:
             logging.error("Trying to issue an immediate" +
-                                            "notification without any message")
+                          "notification without any message")
             return
 
         logging.warning("notify_immediate, " +
-                     "exit_status=<{0}>, exit_message=<{1}>".format(
-                     exit_status, exit_message))
+                        "exit_status=<{0}>, exit_message=<{1}>".format(
+                        exit_status, exit_message))
         event = {
             'host': cls._hostname,
             'service': SERVICE_NAME,
@@ -284,11 +284,19 @@ def find_cert(path):
 
 
 def get_cert_expiration(path):
+    ignored_certs = ScriptConfiguration.get_val("ignored_certs")
     if path[-3:] in ['pem', 'crt', 'cer']:
         try:
             #Many bad things can happen here, but still - we can recover! :)
             with open(path, 'r') as fh:
-                cert_data = load_certificate(FILETYPE_PEM, fh.read())
+                cert = fh.read()
+                cert_hash = hashlib.sha1(cert).hexdigest()
+                if cert_hash in ignored_certs:
+                    #This cert should be ignored
+                    logging.notice("certificate {0} (sha1sum: {1})".format(
+                                   path, cert_hash) + " has been ignored.")
+                    return None
+                cert_data = load_certificate(FILETYPE_PEM, cert)
                 expiry_date = cert_data.get_notAfter()
                 #Return datetime object:
                 return datetime.strptime(expiry_date, '%Y%m%d%H%M%SZ')
@@ -296,12 +304,12 @@ def get_cert_expiration(path):
             msg = "Script cannot parse certificate {0}: {1}".format(path, str(e))
             logging.warn(msg)
             ScriptStatus.update('unknown', msg)
+            return None
     else:
         ScriptStatus.update('unknown',
                             "Certificate {0} is of unsupported type, ".format(path) +
                             "the script cannot check the expiry date.")
-
-    return None
+        return None
 
 
 def main(config_file, std_err=False, verbose=True, dont_send=False):
@@ -322,22 +330,22 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         logger.addHandler(handler)
 
         logger.info("Certcheck is starting, command line arguments:" +
-                     "config_file={0}, ".format(config_file) +
-                     "std_err={0}, ".format(std_err) +
-                     "verbose={0}, ".format(verbose)
-                     )
+                    "config_file={0}, ".format(config_file) +
+                    "std_err={0}, ".format(std_err) +
+                    "verbose={0}, ".format(verbose)
+                    )
 
         #FIXME - Remamber to correctly configure syslog, otherwise rsyslog will
         #discard messages
         ScriptConfiguration.load_config(config_file)
 
         logger.debug("Scandir is: " +
-                    "{0}".format(ScriptConfiguration.get_val("scan_dir")),
-                    ", warn_thresh is {0}".format(
-                        ScriptConfiguration.get_val('warn_treshold')),
-                    ", crit_thresh is {0}".format(
-                        ScriptConfiguration.get_val('critical_treshold'))
-                    )
+                     "{0}".format(ScriptConfiguration.get_val("scan_dir")),
+                     ", warn_thresh is {0}".format(
+                         ScriptConfiguration.get_val('warn_treshold')),
+                     ", crit_thresh is {0}".format(
+                         ScriptConfiguration.get_val('critical_treshold'))
+                     )
 
         ScriptStatus.initialize(
             riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),

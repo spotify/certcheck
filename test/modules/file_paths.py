@@ -23,8 +23,10 @@ EXPIRE_41_DAYS_DER = op.join(CERTIFICATES_DIR,
                              'puphpet/src/Puphpet/Domain/File/expire_41_days.der')
 BROKEN_CERT = op.join(CERTIFICATES_DIR,
                       'puphpet/src/Puphpet/Domain/Event/broken_certificate.crt')
+IGNORED_CERT = op.join(CERTIFICATES_DIR,
+                      'puphpet/src/Puphpet/Domain/Event/ignored_certificate.crt')
 ALL_CERTS_SET = set([EXPIRED_3_DAYS, EXPIRE_6_DAYS, EXPIRE_21_DAYS, EXPIRE_41_DAYS,
-                  EXPIRE_41_DAYS_DER, BROKEN_CERT])
+                  EXPIRE_41_DAYS_DER, BROKEN_CERT, IGNORED_CERT])
 
 #Configfile location
 TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'certcheck.yml')

@@ -10,3 +10,7 @@ riemann_tags:
   - abc
   - def
 scan_dir: ./certs/
+# sha1sum ./certificate_to_be_ignored
+# format - dict, hash as a key, and value as a comment
+ignored_certs:
+  42b270cbd03eaa8c16c386e66f910195f769f8b1: "certificate used during unit-tests"

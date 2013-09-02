@@ -118,9 +118,16 @@ class TestCertCheck(unittest.TestCase):
         # additionally, openssl uses utc dates
         now = datetime.utcnow() - timedelta(days=1)
 
+        #Load the config file
+        certcheck.ScriptConfiguration.load_config(paths.TEST_CONFIG_FILE)
+
         #Test an expired certificate:
         expiry_time = certcheck.get_cert_expiration(paths.EXPIRED_3_DAYS) - now
         self.assertEqual(expiry_time.days, -3)
+
+        #Test an ignored certificate:
+        expiry_time = certcheck.get_cert_expiration(paths.IGNORED_CERT)
+        self.assertEqual(expiry_time, None)
 
         #Test a good certificate:
         expiry_time = certcheck.get_cert_expiration(paths.EXPIRE_21_DAYS) - now
@@ -189,10 +196,12 @@ class TestCertCheck(unittest.TestCase):
             #now it should succed
             certcheck.ScriptLock.aqquire()
 
+    @mock.patch('logging.warning')
     @mock.patch('logging.info')
     @mock.patch('logging.error')
     @mock.patch('certcheck.Riemann')
-    def test_script_status(self, RiemannMock, LoggingErrorMock, LoggingInfoMock):
+    def test_script_status(self, RiemannMock, LoggingErrorMock, LoggingInfoMock,
+                           LoggingNoticeMock):
         #There should be at least one tag defined:
         certcheck.ScriptStatus.initialize(riemann_hosts=[], riemann_port=1234,
                                           riemann_tags=[])
@@ -253,8 +262,8 @@ class TestCertCheck(unittest.TestCase):
                                          )
         # This call should be issued to *both* connection mocks, but we
         # simplify things here a bit:
-        self.assertEqual(2, len([ x for x in RiemannMock.mock_calls if \
-                                                        x == proper_call]))
+        self.assertEqual(2, len([x for x in RiemannMock.mock_calls
+                                 if x == proper_call]))
         RiemannMock.reset_mock()
 
         #update method shoul escalate only up:
@@ -276,8 +285,8 @@ class TestCertCheck(unittest.TestCase):
         # This call should be issued to *both* connection mocks, but we
         # simplify things here a bit:
         certcheck.ScriptStatus.notify_agregated()
-        self.assertEqual(2, len([ x for x in RiemannMock.mock_calls if \
-                                                        x == proper_call]))
+        self.assertEqual(2, len([x for x in RiemannMock.mock_calls
+                                 if x == proper_call]))
         RiemannMock.reset_mock()
 
     @mock.patch('sys.exit')
