@@ -340,9 +340,9 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         ScriptConfiguration.load_config(config_file)
 
         logger.debug("Scandir is: " +
-                     "{0}".format(ScriptConfiguration.get_val("scan_dir")),
+                     "{0}".format(ScriptConfiguration.get_val("scan_dir")) +
                      ", warn_thresh is {0}".format(
-                         ScriptConfiguration.get_val('warn_treshold')),
+                         ScriptConfiguration.get_val('warn_treshold')) +
                      ", crit_thresh is {0}".format(
                          ScriptConfiguration.get_val('critical_treshold'))
                      )
