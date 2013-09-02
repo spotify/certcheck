@@ -81,7 +81,7 @@ class ScriptStatus(object):
     @classmethod
     def _send_data(cls, event):
         for riemann_connection in cls._riemann_connections:
-            logging.debug('Sending event {0}'.format(str(event)) +
+            logging.info('Sending event {0}, '.format(str(event)) +
                          'using riemann conn {0}:{1}'.format(
                             riemann_connection.host, riemann_connection.port)
                          )
@@ -89,15 +89,14 @@ class ScriptStatus(object):
                 try:
                     riemann_connection.submit(event)
                 except Exception as e:
-                    logging.error("Failed to send event to Rieman host: " +
+                    logging.exception("Failed to send event to Rieman host: " +
                                   "{0}".format(str(e))
                                   )
-                    logging.error("traceback: {0}".format(traceback.format_exc()))
                     continue
                 else:
                     logging.info("Event sent succesfully")
             else:
-                logging.debug('Debug flag set, I am performing no-op instead of'
+                logging.info('Debug flag set, I am performing no-op instead of '
                               'real sent call')
 
     @classmethod
@@ -335,7 +334,7 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
                     "{0}".format(ScriptConfiguration.get_val("scan_dir")),
                     ", warn_thresh is {0}".format(
                         ScriptConfiguration.get_val('warn_treshold')),
-                    ", crit_trhesh is {0}".format(
+                    ", crit_thresh is {0}".format(
                         ScriptConfiguration.get_val('critical_treshold'))
                     )
 
