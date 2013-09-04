@@ -104,6 +104,11 @@ class ScriptStatus(object):
         cls._riemann_tags = riemann_tags
         cls._hostname = socket.gethostname()
         cls._debug = debug
+        cls._exit_status = 'ok'
+        cls._exit_message = ''
+        cls._riemann_connections = [] # FIXME - We should probably do
+                                      # some disconect here if we re-initialize
+
 
         if not riemann_tags:
             logging.error('There should be at least one riemann tag defined.')
