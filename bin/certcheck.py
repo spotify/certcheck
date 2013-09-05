@@ -106,9 +106,9 @@ class ScriptStatus(object):
         cls._debug = debug
         cls._exit_status = 'ok'
         cls._exit_message = ''
-        cls._riemann_connections = [] # FIXME - We should probably do
-                                      # some disconect here if we re-initialize
-
+        cls._riemann_connections = []  # FIXME - We should probably do
+                                       # some disconect here if we re-initialize
+                                       # probably using conn.shutdown() call
 
         if not riemann_tags:
             logging.error('There should be at least one riemann tag defined.')
