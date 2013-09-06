@@ -298,7 +298,7 @@ def get_cert_expiration(path):
                 cert_hash = hashlib.sha1(cert).hexdigest()
                 if cert_hash in ignored_certs:
                     #This cert should be ignored
-                    logging.notice("certificate {0} (sha1sum: {1})".format(
+                    logging.info("certificate {0} (sha1sum: {1})".format(
                                    path, cert_hash) + " has been ignored.")
                     return None
                 cert_data = load_certificate(FILETYPE_PEM, cert)
