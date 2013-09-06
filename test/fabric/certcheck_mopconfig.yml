@@ -8,9 +8,10 @@ riemann_port: 5555
 riemann_tags:
   - production
   - site::lon
-  - role::certcheck
+  - class::certcheck
 scan_dir: /home/vespian/work/git_repos/spotify-puppet/
 # sha1sum ./certificate_to_be_ignored
 # format - dict, hash as a key, and value as a comment
 ignored_certs:
-  f1e924ec1ae5cbac1f928e5c70be59f5221d8578: "filename - comment, comment"
+  208a4ffc0bb0aa9ce6ccf6ed8fe3aa289a24f4dc: "dh2048.pem - openvpn DH params"
+  418b085d32a2dd0777c53fb5eedf1a92b0f4d112: "storage_resolve - rsa key"
