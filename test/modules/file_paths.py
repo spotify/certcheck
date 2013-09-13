@@ -11,22 +11,15 @@ _fabric_base_dir = op.join(_main_dir, 'fabric/')
 CERTIFICATES_DIR = op.join(_fabric_base_dir, 'sample_cert_dir/')
 NONEXISTANT_CERTIFICATES_DIR = op.join(_fabric_base_dir,
                                        'sssample_cert_dir/')
-EXPIRED_3_DAYS = op.join(CERTIFICATES_DIR,
-                         'puphpet/web/assets/js/expired_3_days.pem')
-EXPIRE_6_DAYS = op.join(CERTIFICATES_DIR,
-                        'puphpet/tests/Puphpet/Tests/Controller/expire_6_days.pem')
-EXPIRE_21_DAYS = op.join(CERTIFICATES_DIR,
-                         'puphpet/src/Puphpet/Controller/expire_21_days.pem')
-EXPIRE_41_DAYS = op.join(CERTIFICATES_DIR,
-                         'puphpet/src/Puphpet/Controller/expire_41_days.pem')
-EXPIRE_41_DAYS_DER = op.join(CERTIFICATES_DIR,
-                             'puphpet/src/Puphpet/Domain/File/expire_41_days.der')
-BROKEN_CERT = op.join(CERTIFICATES_DIR,
-                      'puphpet/src/Puphpet/Domain/Event/broken_certificate.crt')
-IGNORED_CERT = op.join(CERTIFICATES_DIR,
-                      'puphpet/src/Puphpet/Domain/Event/ignored_certificate.crt')
+EXPIRED_3_DAYS = op.join(CERTIFICATES_DIR, 'expired_3_days.pem')
+EXPIRE_6_DAYS = op.join(CERTIFICATES_DIR, 'expire_6_days.pem')
+EXPIRE_21_DAYS = op.join(CERTIFICATES_DIR, 'expire_21_days.pem')
+EXPIRE_41_DAYS = op.join(CERTIFICATES_DIR, 'expire_41_days.pem')
+EXPIRE_41_DAYS_DER = op.join(CERTIFICATES_DIR, 'expire_41_days.der')
+BROKEN_CERT = op.join(CERTIFICATES_DIR, 'broken_certificate.crt')
+IGNORED_CERT = op.join(CERTIFICATES_DIR, 'ignored_certificate.crt')
 ALL_CERTS_SET = set([EXPIRED_3_DAYS, EXPIRE_6_DAYS, EXPIRE_21_DAYS, EXPIRE_41_DAYS,
-                  EXPIRE_41_DAYS_DER, BROKEN_CERT, IGNORED_CERT])
+                     EXPIRE_41_DAYS_DER, BROKEN_CERT, IGNORED_CERT])
 
 #Configfile location
 TEST_CONFIG_FILE = op.join(_fabric_base_dir, 'certcheck.yml')
