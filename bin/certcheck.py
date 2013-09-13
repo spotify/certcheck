@@ -9,7 +9,11 @@ from __future__ import with_statement
 #Imports:
 from OpenSSL.crypto import FILETYPE_PEM
 from OpenSSL.crypto import load_certificate
+from collections import namedtuple
 from datetime import datetime, timedelta
+from dulwich.client import SSHGitClient, SubprocessWrapper, TraditionalGitClient
+from dulwich.protocol import Protocol
+from dulwich.repo import Repo
 from eagleeye.riemann import Riemann
 import argparse
 import fcntl
@@ -18,6 +22,7 @@ import logging
 import logging.handlers as lh
 import os
 import socket
+import subprocess
 import sys
 import yaml
 
@@ -35,6 +40,122 @@ class RecoverableException(Exception):
     to Riemann, and the ones that should be only logged due to their severity
     """
     pass
+
+
+class PubkeySSHGitClient(SSHGitClient):
+    def __init__(self, host, pubkey, port=None, username=None, *args, **kwargs):
+        self.host = host
+        self.port = port
+        self.pubkey = pubkey
+        self.username = username
+        TraditionalGitClient.__init__(self, *args, **kwargs)
+        self.alternative_paths = {}
+
+    def _connect(self, cmd, path):
+        #FIXME: This has no way to deal with passphrases..
+        args = ['ssh', '-x']
+        args.extend(['-i', self.pubkey])
+        if self.port is not None:
+            args.extend(['-p', str(self.port)])
+        if self.username is not None:
+            host = '{0}@{1}'.format(self.username, self.host)
+        else:
+            host = self.host
+        args.append(host)
+        args.extend(["{0} '{1}'".format(self._get_cmd_path(cmd), path)])
+        proc = subprocess.Popen(args,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
+        con = SubprocessWrapper(proc)
+        logging.info("Connected to repo {0}:{1} via ssh".format(self.host,
+                     self.port if self.port else 22))
+        return (Protocol(con.read,
+                         con.write,
+                         report_activity=self._report_activity
+                         ),
+                con.can_read)
+
+
+class LocalMirrorRepo(Repo):
+    def lookup_files(self, determine_wants, root_sha=None, repo_path=''):
+        file_list = []
+        if root_sha is None:
+            commit = self.get_object(self.head())
+            root_sha = commit.tree
+        root = self.get_object(root_sha)
+        if repo_path:
+            #Extreme verbosity
+            #logging.debug("Scanning repo directory {0}".format(repo_path))
+            pass
+        else:
+            logging.info("Scanning repo root directory")
+
+        for item in root.iteritems():
+            full_path = os.path.join(repo_path, item.path)
+            if item.mode & 0b0100000000000000:
+                #A directory:
+                subentries = self.lookup_files(determine_wants=determine_wants,
+                                               root_sha=item.sha,
+                                               repo_path=full_path)
+                file_list.extend(subentries)
+            if item.mode & 0b1000000000000000:
+                #A file, lets check if user wants it:
+                if determine_wants(item.path):
+                    logging.info("Matching file found: {0}".format(full_path))
+                    buf = namedtuple("FileTuple", ['path', 'sha'])
+                    buf.path = full_path
+                    buf.content = self.get_object(item.sha).data
+                    file_list.append(buf)
+        return file_list
+
+
+class CertStore(object):
+    _remote = None
+    _local = None
+
+    @classmethod
+    def initialize(cls, host, port, pubkey, username, repo_localdir, repo_url,
+                   repo_masterbranch):
+        if cls._remote is None:
+            cls._remote = PubkeySSHGitClient(host=host,
+                                             pubkey=pubkey,
+                                             username=username,
+                                             port=port,
+                                             thin_packs=False,  # Not supported by
+                                                                # dulwich properly
+                                             )
+        if not os.path.exists(os.path.join(repo_localdir, "objects")):
+            if not os.path.exists(repo_localdir):
+                os.mkdir(repo_localdir, 0700)
+            cls._local = LocalMirrorRepo.init_bare(repo_localdir)
+        else:
+            cls._local = LocalMirrorRepo(repo_localdir)
+
+        #We are only interested in 'production' branch, not the topic branches
+        #all the commits linked to the master will be downloaded as well of
+        #course
+        def wants_master_only(refs):
+            return [sha for (ref, sha) in refs.iteritems()
+                    if ref == repo_masterbranch]
+        refs = cls._remote.fetch(path=repo_url, target=cls._local,
+                                 determine_wants=wants_master_only)
+        cls._local["HEAD"] = refs[repo_masterbranch]
+
+    @classmethod
+    def lookup_certs(cls, cert_suffixes):
+        if cls._local is None:
+            raise RecoverableException("Local repo mirror has not been " +
+                                       "initialized yet")
+
+        def wants_all_certs(path):
+            if len(path) >= 5 and path[-4] == '.' and \
+                    path[-3:] in cert_suffixes:
+                return True
+            else:
+                return False
+        certs = cls._local.lookup_files(determine_wants=wants_all_certs)
+        logging.info("{0} certificates found".format(len(certs)))
+        return certs
 
 
 class ScriptConfiguration(object):
@@ -117,8 +238,9 @@ class ScriptStatus(object):
             try:
                 riemann_connection = Riemann(riemann_host, riemann_port)
             except Exception as e:
-                logging.exception("Failed to connect to Rieman host {0}: {1}, ".format(
-                    riemann_host, str(e)) + "address has been exluded from the list.")
+                logging.exception("Failed to connect to Rieman host " +
+                                  "{0}: {1}, ".format(riemann_host, str(e)) +
+                                  "address has been exluded from the list.")
                 continue
 
             logging.debug("Connected to Riemann instance {0}".format(riemann_host))
@@ -166,8 +288,9 @@ class ScriptStatus(object):
         if cls._exit_status == 'ok' and cls._exit_message == '':
             cls._exit_message = 'All certificates are OK'
 
-        logging.debug("notify_agregated, exit_status=<{0}>, exit_message=<{1}>".format(
-            cls._exit_status, cls._exit_message))
+        logging.debug("notify_agregated, " +
+                      "exit_status=<{0}>, exit_message=<{1}>".format(
+                          cls._exit_status, cls._exit_message))
 
         event = {
             'host': cls._hostname,
@@ -190,14 +313,15 @@ class ScriptStatus(object):
                           "with malformed exit_status: " + exit_status)
             return
 
-        logging.info("updating script status, exit_status=<{0}>, exit_message=<{1}>".format(
-            exit_status, exit_message))
+        logging.info("updating script status, " +
+                     "exit_status=<{0}>, exit_message=<{1}>".format(
+                         exit_status, exit_message))
         if cls._STATES[cls._exit_status] < cls._STATES[exit_status]:
             cls._exit_status = exit_status
         # ^ we only escalate up...
         if exit_message:
             if cls._exit_message:
-                cls._exit_message += ' '
+                cls._exit_message += '\n'
             cls._exit_message += exit_message
 
 
@@ -276,43 +400,37 @@ def parse_command_line():
             }
 
 
-def find_cert(path):
-    if not os.path.isdir(path):
-        raise RecoverableException("Directory {0} does not exist".format(path))
-    logging.debug("Scanning directory {0}".format(path))
-    for root, sub_folders, files in os.walk(path):
-        for file in files:
-            if len(file) >= 5 and file[-4] == '.' and \
-                    file[-3:] in CERTIFICATE_EXTENSIONS:
-                logging.debug("Certificate found: {0}".format(file))
-                yield os.path.join(root, file)
-
-
-def get_cert_expiration(path):
-    ignored_certs = ScriptConfiguration.get_val("ignored_certs")
-    if path[-3:] in ['pem', 'crt', 'cer']:
+def get_cert_expiration(certificate, ignored_certs):
+    if certificate.path[-3:] in ['pem', 'crt', 'cer']:
         try:
             #Many bad things can happen here, but still - we can recover! :)
-            with open(path, 'r') as fh:
-                cert = fh.read()
-                cert_hash = hashlib.sha1(cert).hexdigest()
-                if cert_hash in ignored_certs:
-                    #This cert should be ignored
-                    logging.info("certificate {0} (sha1sum: {1})".format(
-                                   path, cert_hash) + " has been ignored.")
-                    return None
-                cert_data = load_certificate(FILETYPE_PEM, cert)
-                expiry_date = cert_data.get_notAfter()
-                #Return datetime object:
-                return datetime.strptime(expiry_date, '%Y%m%d%H%M%SZ')
+            cert_hash = hashlib.sha1(certificate.content).hexdigest()
+            if cert_hash in ignored_certs:
+                #This cert should be ignored
+                logging.info("certificate {0} (sha1sum: {1})".format(
+                             certificate.path, cert_hash) + " has been ignored.")
+                return None
+            #Workaround for -----BEGIN TRUSTED CERTIFICATE-----
+            if certificate.content.find('TRUSTED ') > -1:
+                logging.info("'TRUSTED' string has been removed from " +
+                             "certificate {0} (sha1sum: {1})".format(
+                                 certificate.path, cert_hash))
+                certificate.content = certificate.content.replace('TRUSTED ',
+                                                                  '')
+            cert_data = load_certificate(FILETYPE_PEM, certificate.content)
+            expiry_date = cert_data.get_notAfter()
+            #Return datetime object:
+            return datetime.strptime(expiry_date, '%Y%m%d%H%M%SZ')
         except Exception as e:
-            msg = "Script cannot parse certificate {0}: {1}".format(path, str(e))
+            msg = "Script cannot parse certificate {0}: {1}".format(
+                  certificate.path, str(e))
             logging.warn(msg)
             ScriptStatus.update('unknown', msg)
             return None
     else:
         ScriptStatus.update('unknown',
-                            "Certificate {0} is of unsupported type, ".format(path) +
+                            "Certificate {0} is of unsupported type, ".format(
+                                certificate.path) +
                             "the script cannot check the expiry date.")
         return None
 
@@ -320,7 +438,8 @@ def get_cert_expiration(path):
 def main(config_file, std_err=False, verbose=True, dont_send=False):
     try:
         #Configure logging:
-        fmt = logging.Formatter('%(filename)s[%(process)d] %(levelname)s: %(message)s')
+        fmt = logging.Formatter('%(filename)s[%(process)d] %(levelname)s: ' +
+                                '%(message)s')
         logger = logging.getLogger()
         if verbose:
             logger.setLevel(logging.DEBUG)
@@ -340,18 +459,27 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
                     "verbose={0}, ".format(verbose)
                     )
 
-        #FIXME - Remamber to correctly configure syslog, otherwise rsyslog will
+        #FIXME - Remember to correctly configure syslog, otherwise rsyslog will
         #discard messages
         ScriptConfiguration.load_config(config_file)
 
-        logger.debug("Scandir is: " +
-                     "{0}".format(ScriptConfiguration.get_val("scan_dir")) +
+        logger.debug("Remote repo is is: {0}@{1}:{2}{3}->{4}".format(
+                         ScriptConfiguration.get_val("repo_user"),
+                         ScriptConfiguration.get_val("repo_host"),
+                         ScriptConfiguration.get_val("repo_port"),
+                         ScriptConfiguration.get_val("repo_url"),
+                         ScriptConfiguration.get_val("repo_masterbranch")) +
+                     ", local repository dir is {0}".format(
+                         ScriptConfiguration.get_val('repo_localdir')) +
+                     ", repository key is {0}".format(
+                         ScriptConfiguration.get_val('repo_pubkey')) +
                      ", warn_thresh is {0}".format(
                          ScriptConfiguration.get_val('warn_treshold')) +
                      ", crit_thresh is {0}".format(
                          ScriptConfiguration.get_val('critical_treshold'))
                      )
 
+        #Initialize Riemann reporting:
         ScriptStatus.initialize(
             riemann_hosts=ScriptConfiguration.get_val("riemann_hosts"),
             riemann_port=ScriptConfiguration.get_val("riemann_port"),
@@ -365,8 +493,8 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
             msg.append('certificate expiration warn threshold should be > 0.')
         if ScriptConfiguration.get_val('critical_treshold') <= 0:
             msg.append('certificate expiration critical threshold should be > 0.')
-        if ScriptConfiguration.get_val('critical_treshold') >= ScriptConfiguration.get_val(
-                'warn_treshold'):
+        if ScriptConfiguration.get_val('critical_treshold') >= \
+                ScriptConfiguration.get_val('warn_treshold'):
             msg.append('warninig threshold should be greater than critical treshold.')
 
         #if there are problems with thresholds then there is no point in continuing:
@@ -376,11 +504,27 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
                                           ','.join(msg))
             sys.exit(1)
 
+        #Make sure that we are the only ones running on the server:
         ScriptLock.init(ScriptConfiguration.get_val('lockfile'))
         ScriptLock.aqquire()
 
-        for certfile in find_cert(ScriptConfiguration.get_val("scan_dir")):
-            cert_expiration = get_cert_expiration(certfile)
+        #Initialize our repo mirror:
+        CertStore.initialize(host=ScriptConfiguration.get_val("repo_host"),
+                             port=ScriptConfiguration.get_val("repo_port"),
+                             pubkey=ScriptConfiguration.get_val('repo_pubkey'),
+                             username=ScriptConfiguration.get_val("repo_user"),
+                             repo_localdir=ScriptConfiguration.get_val(
+                                 'repo_localdir'),
+                             repo_url=ScriptConfiguration.get_val("repo_url"),
+                             repo_masterbranch=ScriptConfiguration.get_val(
+                                 "repo_masterbranch"),
+                             )
+
+        for cert in CertStore.lookup_certs(CERTIFICATE_EXTENSIONS):
+            cert_expiration = get_cert_expiration(cert,
+                                                  ignored_certs=ScriptConfiguration.get_val(
+                                                      "ignored_certs")
+                                                  )
             if cert_expiration is None:
                 continue
             # -3 days is in fact -4 days, 23:59:58.817181
@@ -391,21 +535,22 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
             if time_left.days < 0:
                 ScriptStatus.update('critical',
                                     "Certificate {0} expired {1} days ago.".format(
-                                    certfile, abs(time_left.days)))
+                                    cert.path, abs(time_left.days)))
             elif time_left.days == 0:
                 ScriptStatus.update('critical',
-                                    "Certificate {0} expires today.".format(certfile))
+                                    "Certificate {0} expires today.".format(
+                                    cert.path))
             elif time_left.days < ScriptConfiguration.get_val("critical_treshold"):
                 ScriptStatus.update('critical',
                                     "Certificate {0} is about to expire in {1} days.".format(
-                                    certfile, time_left.days))
+                                    cert.path, time_left.days))
             elif time_left.days < ScriptConfiguration.get_val("warn_treshold"):
                 ScriptStatus.update('warn',
                                     "Certificate {0} is about to expire in {1} days.".format(
-                                    certfile, time_left.days))
+                                    cert.path, time_left.days))
             else:
                 logger.info("{0} expires in {1} days - OK!".format(
-                    certfile, time_left.days))
+                    cert.path, time_left.days))
 
         ScriptStatus.notify_agregated()
         ScriptLock.release()
