@@ -53,6 +53,7 @@ class PubkeySSHGitClient(SSHGitClient):
 
     def _connect(self, cmd, path):
         #FIXME: This has no way to deal with passphrases..
+        #FIXME: can we rely on ssh being in PATH here ?
         args = ['ssh', '-x']
         args.extend(['-i', self.pubkey])
         if self.port is not None:
