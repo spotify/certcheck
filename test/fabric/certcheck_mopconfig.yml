@@ -3,8 +3,12 @@ lockfile: /tmp/certcheck.lock
 warn_treshold: 30
 critical_treshold: 15
 riemann_hosts:
-  - 192.168.122.16
-riemann_port: 5555
+  static:
+    - 192.168.122.16:5555:udp
+    - 192.168.122.16:5555:tcp
+  by_srv:
+    - _spotify-riemann._tcp
+    - _spotify-riemann._udp
 riemann_tags:
   - production
   - site::lon
