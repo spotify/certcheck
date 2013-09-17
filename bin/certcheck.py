@@ -289,8 +289,7 @@ class ScriptStatus(object):
         return [entry]
 
     @classmethod
-    def initialize(cls, riemann_hosts_config, riemann_port, riemann_tags,
-                   debug=False):
+    def initialize(cls, riemann_hosts_config, riemann_tags, debug=False):
         cls._riemann_tags = riemann_tags
         cls._hostname = socket.gethostname()
         cls._debug = debug
@@ -353,7 +352,7 @@ class ScriptStatus(object):
                           "notification without any message")
             return
 
-        logging.warning("notify_immediate, " +
+        logging.warn("notify_immediate, " +
                         "exit_status=<{0}>, exit_message=<{1}>".format(
                         exit_status, exit_message))
         event = {
@@ -569,7 +568,7 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
 
         #Initialize Riemann reporting:
         ScriptStatus.initialize(
-            riemann_hosts_config=ScriptConfiguration.get_val("riemann_hosts_config"),
+            riemann_hosts_config=ScriptConfiguration.get_val("riemann_hosts"),
             riemann_tags=ScriptConfiguration.get_val("riemann_tags"),
             debug=dont_send,
         )
