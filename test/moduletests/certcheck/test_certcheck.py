@@ -114,6 +114,8 @@ class TestCertCheck(unittest.TestCase):
     @mock.patch('logging.warn')  # Unused, but masks error messages
     @mock.patch.object(certcheck.ScriptStatus, 'update')
     def test_cert_expiration_parsing(self, UpdateMock, *unused):
+        IGNORED_CERTS = ['42b270cbd03eaa8c16c386e66f910195f769f8b1']
+
         # -3 days is in fact -4 days, 23:59:58.817181
         # so we compensate and round up
         # additionally, openssl uses utc dates
@@ -122,30 +124,30 @@ class TestCertCheck(unittest.TestCase):
         #Test an expired certificate:
         cert = self._certpath2namedtuple(paths.EXPIRED_3_DAYS)
         expiry_time = certcheck.get_cert_expiration(
-                        cert, certcheck.CERTIFICATE_EXTENSIONS) - now
+                        cert, IGNORED_CERTS) - now
         self.assertEqual(expiry_time.days, -3)
 
         #Test an ignored certificate:
         cert = self._certpath2namedtuple(paths.IGNORED_CERT)
         expiry_time = certcheck.get_cert_expiration(cert,
-                        certcheck.CERTIFICATE_EXTENSIONS)
+                        IGNORED_CERTS)
         self.assertEqual(expiry_time, None)
 
         #Test a good certificate:
         cert = self._certpath2namedtuple(paths.EXPIRE_21_DAYS)
         expiry_time = certcheck.get_cert_expiration(cert,
-                        certcheck.CERTIFICATE_EXTENSIONS) - now
+                        IGNORED_CERTS) - now
         self.assertEqual(expiry_time.days, 21)
 
         #Test a DER certificate:
         cert = self._certpath2namedtuple(paths.EXPIRE_41_DAYS_DER)
-        certcheck.get_cert_expiration(cert, certcheck.CERTIFICATE_EXTENSIONS)
+        certcheck.get_cert_expiration(cert, IGNORED_CERTS)
         self.assertTrue(UpdateMock.called)
         self.assertEqual(UpdateMock.call_args_list[0][0][0], 'unknown')
 
         #Test a broken certificate:
         cert = self._certpath2namedtuple(paths.BROKEN_CERT)
-        certcheck.get_cert_expiration(cert, certcheck.CERTIFICATE_EXTENSIONS)
+        certcheck.get_cert_expiration(cert, IGNORED_CERTS)
         self.assertTrue(UpdateMock.called)
         self.assertEqual(UpdateMock.call_args_list[0][0][0], 'unknown')
 
@@ -202,20 +204,19 @@ class TestCertCheck(unittest.TestCase):
             #now it should succed
             certcheck.ScriptLock.aqquire()
 
-    @mock.patch('logging.warning')
+    @mock.patch('logging.warn')  # Unused, but masks error messages
     @mock.patch('logging.info')
     @mock.patch('logging.error')
-    @mock.patch('certcheck.Riemann')
+    @mock.patch('certcheck.bernhard')
     def test_script_status(self, RiemannMock, LoggingErrorMock, LoggingInfoMock,
-                           LoggingNoticeMock):
+                           *unused):
         #There should be at least one tag defined:
-        certcheck.ScriptStatus.initialize(riemann_hosts=[], riemann_port=1234,
-                                          riemann_tags=[])
+        certcheck.ScriptStatus.initialize(riemann_hosts_config={}, riemann_tags=[])
         self.assertTrue(LoggingErrorMock.called)
         LoggingErrorMock.reset_mock()
 
         #There should be at least one Riemann host defined:
-        certcheck.ScriptStatus.initialize(riemann_hosts=[], riemann_port=1234,
+        certcheck.ScriptStatus.initialize(riemann_hosts_config={},
                                           riemann_tags=['tag1', 'tag2'])
         self.assertTrue(LoggingErrorMock.called)
         LoggingErrorMock.reset_mock()
@@ -224,16 +225,18 @@ class TestCertCheck(unittest.TestCase):
         def side_effect(host, port):
             raise Exception("Raising exception for {0}:{1} pair")
 
-        RiemannMock.side_effect = side_effect
+        RiemannMock.UDPTransport = 'UDPTransport'
+        RiemannMock.TCPTransport = 'TCPTransport'
+        RiemannMock.Client.side_effect = side_effect
 
-        certcheck.ScriptStatus.initialize(riemann_hosts=['hostname'],
-                                          riemann_port=1234,
+        certcheck.ScriptStatus.initialize(riemann_hosts_config={
+                                              'static': ['192.168.122.16:5555:udp']},
                                           riemann_tags=['tag1', 'tag2'])
         self.assertTrue(LoggingErrorMock.called)
         LoggingErrorMock.reset_mock()
 
-        RiemannMock.side_effect = None
-        RiemannMock.reset_mock()
+        RiemannMock.Client.side_effect = None
+        RiemannMock.Client.reset_mock()
 
         #Mock should only allow legitimate exit_statuses
         certcheck.ScriptStatus.notify_immediate("not a real status", "message")
@@ -245,21 +248,23 @@ class TestCertCheck(unittest.TestCase):
         LoggingErrorMock.reset_mock()
 
         #Done with syntax checking, now initialize the class properly:
-        certcheck.ScriptStatus.initialize(riemann_hosts=['hostname1', 'hostname2'],
-                                          riemann_port=1234,
+        certcheck.ScriptStatus.initialize(riemann_hosts_config={
+                                              'static': ['1.2.3.4:1:udp',
+                                                         '2.3.4.5:5555:tcp',]
+                                              },
                                           riemann_tags=['tag1', 'tag2'])
 
-        proper_calls = [mock.call('hostname1', 1234),
-                        mock.call('hostname2', 1234)]
-        RiemannMock.assert_has_calls(proper_calls)
-        RiemannMock.reset_mock()
+        proper_calls = [mock.call('1.2.3.4', 1, 'UDPTransport'),
+                        mock.call('2.3.4.5', 5555, 'TCPTransport')]
+        RiemannMock.Client.assert_has_calls(proper_calls)
+        RiemannMock.Client.reset_mock()
 
         #Check if notify_immediate works
         certcheck.ScriptStatus.notify_immediate("warn", "a warning message")
         self.assertTrue(LoggingInfoMock.called)
         LoggingErrorMock.reset_mock()
 
-        proper_call = mock.call().submit({'description': 'a warning message',
+        proper_call = mock.call().send({'description': 'a warning message',
                                           'service': 'certcheck',
                                           'tags': ['tag1', 'tag2'],
                                           'state': 'warn',
@@ -268,9 +273,9 @@ class TestCertCheck(unittest.TestCase):
                                          )
         # This call should be issued to *both* connection mocks, but we
         # simplify things here a bit:
-        self.assertEqual(2, len([x for x in RiemannMock.mock_calls
+        self.assertEqual(2, len([x for x in RiemannMock.Client.mock_calls
                                  if x == proper_call]))
-        RiemannMock.reset_mock()
+        RiemannMock.Client.reset_mock()
 
         #update method shoul escalate only up:
         certcheck.ScriptStatus.update('warn', "this is a warning message.")
@@ -278,7 +283,7 @@ class TestCertCheck(unittest.TestCase):
         certcheck.ScriptStatus.update('unknown', "this is a not-rated message.")
         certcheck.ScriptStatus.update('ok', "this is an informational message.")
 
-        proper_call = mock.call().submit({'description':
+        proper_call = mock.call().send({'description':
                                           'this is a warning message.\n' +
                                           'this is a not-rated message.\n' +
                                           'this is an informational message.',
@@ -291,7 +296,7 @@ class TestCertCheck(unittest.TestCase):
         # This call should be issued to *both* connection mocks, but we
         # simplify things here a bit:
         certcheck.ScriptStatus.notify_agregated()
-        self.assertEqual(2, len([x for x in RiemannMock.mock_calls
+        self.assertEqual(2, len([x for x in RiemannMock.Client.mock_calls
                                  if x == proper_call]))
         RiemannMock.reset_mock()
 
@@ -341,9 +346,10 @@ class TestCertCheck(unittest.TestCase):
         def script_conf_factory(**kwargs):
             good_configuration = {"warn_treshold": 30,
                                   "critical_treshold": 15,
-                                  "riemann_hosts": ["127.0.0.1",
-                                                    "127.0.0.2"],
-                                  "riemann_port": 1234,
+                                  "riemann_hosts": {
+                                              'static': ['1.2.3.4:1:udp',
+                                                         '2.3.4.5:5555:tcp',]
+                                              },
                                   "riemann_tags": ["abc", "def"],
                                   "repo_host": "git.foo.net",
                                   "repo_port": 22,
@@ -390,9 +396,10 @@ class TestCertCheck(unittest.TestCase):
             certcheck.main(config_file='./certcheck.conf')
         self.assertEqual(e.exception.code, 1)
 
-        proper_init_call = dict(riemann_hosts=['127.0.0.1',
-                                               '127.0.0.2'],
-                                riemann_port=1234,
+        proper_init_call = dict(riemann_hosts_config= {
+                                    'static': ['1.2.3.4:1:udp',
+                                                '2.3.4.5:5555:tcp',]
+                                    },
                                 riemann_tags=['abc', 'def'],
                                 debug=False)
         self.assertTrue(ScriptConfigurationMock.load_config.called)
