@@ -244,7 +244,7 @@ class ScriptStatus(object):
         logging.debug("Resolving " + name)
         if name.find('._udp') > 0:
             proto = 'udp'
-        elif name.find('.tcp') > 0:
+        elif name.find('._tcp') > 0:
             proto = 'tcp'
         else:
             raise RecoverableException("Entry {0} ".format(name) +
