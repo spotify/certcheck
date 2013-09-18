@@ -10,6 +10,7 @@ Standards-Version: 3.9.3
 X-Python-Version: >= 2.6
 
 Package: spotify-certcheck
+Version: 0.2.0
 Architecture: any
 Depends: ${python:Depends}, python-openssl, python-bernhard, python-argparse,
     python-protobuf, python-yaml, python-dulwich (>= 0.8), openssh-client
