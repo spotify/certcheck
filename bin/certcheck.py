@@ -241,13 +241,13 @@ class ScriptStatus(object):
     @classmethod
     def _resolve_srv_hosts(cls, name):
         result = []
-        logging.debug("Resolving {0}, proto {1}")
+        logging.debug("Resolving " + name)
         if name.find('._udp') > 0:
             proto = 'udp'
         elif name.find('.tcp') > 0:
             proto = 'tcp'
         else:
-            raise RecoverableException("Entry {0}".format(name) +
+            raise RecoverableException("Entry {0} ".format(name) +
                                        "is not a valid SRV name")
 
         try:
