@@ -258,7 +258,7 @@ class ScriptStatus(object):
 
         for rdata in resolved:
             entry = namedtuple("RiemannHost", ['host', 'port', 'proto'])
-            entry.host = cls._name2ip(rdata.target)
+            entry.host = cls._name2ip(rdata.target.to_text())
             if entry.host is None:
                 continue
             entry.port = rdata.port
