@@ -56,7 +56,7 @@ class PubkeySSHGitClient(SSHGitClient):
     def _connect(self, cmd, path):
         #FIXME: This has no way to deal with passphrases..
         #FIXME: can we rely on ssh being in PATH here ?
-        args = ['ssh', '-x']
+        args = ['ssh', '-x', '-oStrictHostKeyChecking=no']
         args.extend(['-i', self.pubkey])
         if self.port is not None:
             args.extend(['-p', str(self.port)])
@@ -353,8 +353,8 @@ class ScriptStatus(object):
             return
 
         logging.warn("notify_immediate, " +
-                        "exit_status=<{0}>, exit_message=<{1}>".format(
-                        exit_status, exit_message))
+                     "exit_status=<{0}>, exit_message=<{1}>".format(
+                     exit_status, exit_message))
         event = {
             'host': cls._hostname,
             'service': SERVICE_NAME,
