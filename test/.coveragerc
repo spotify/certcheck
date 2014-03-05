@@ -18,7 +18,7 @@ exclude_lines =
     if __name__ == .__main__.:
 source =
     ../bin/
-    ../spotify_certcheck/
+    ../certcheck/
 
 
 [html]

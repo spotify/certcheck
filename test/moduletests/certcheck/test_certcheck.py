@@ -20,11 +20,7 @@ if major == 2 and minor < 7:
     import unittest2 as unittest
 else:
     import unittest
-#no everyone has spotify-mock8/mock installed:
-try:
-    import spotify.util.mock8 as mock
-except ImportError:
-    import mock
+import mock
 
 #To perform local imports first we need to fix PYTHONPATH:
 pwd = os.path.abspath(os.path.dirname(__file__))

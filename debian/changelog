@@ -1,11 +1,11 @@
-spotify-certcheck (0.2.0) stable; urgency=low
+certcheck (0.2.0) stable; urgency=low
 
   * Git integration.
   * Drop scanning directories in favour of direct git interfacing.
 
  -- Pawel Rozlach <prozlach@spotify.com>  Mon, 18 Sep 2013 14:33:43 +0000
 
-spotify-certcheck (0.1.0) unstable; urgency=low
+certcheck (0.1.0) unstable; urgency=low
 
   * Initial release.
 

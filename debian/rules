@@ -6,6 +6,3 @@
 
 override_dh_fixperms:
 	dh_fixperms
-	# We can remove this rule when all packages have been converted to
-	# python-support. See #BIT-139.
-	find $(DESTDIR) -name top_level.txt -delete

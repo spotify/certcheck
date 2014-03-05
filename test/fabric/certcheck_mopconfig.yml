@@ -7,15 +7,14 @@ riemann_hosts:
     - 192.168.122.16:5555:udp
     - 192.168.122.16:5555:tcp
   by_srv:
-    - _spotify-riemann._tcp
-    - _spotify-riemann._udp
+    - _riemann._tcp
+    - _riemann._udp
 riemann_tags:
   - production
-  - site::lon
   - class::certcheck
-repo_host: git.spotify.net
+repo_host: git.example.com
 repo_port: 22
-repo_url: /spotify-puppet
+repo_url: /sample-repo
 repo_masterbranch: refs/heads/production
 repo_localdir: /tmp/certcheck-temprepo
 repo_user: certcheck
