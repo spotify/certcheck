@@ -466,7 +466,7 @@ class ScriptLock(object):
 
 def parse_command_line():
     parser = argparse.ArgumentParser(
-        description='Simple certificate expiration check',
+        description='Certificate checking tool',
         epilog="Author: vespian a t wp.pl",
         add_help=True,)
     parser.add_argument(

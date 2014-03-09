@@ -21,6 +21,6 @@ setup(name='certcheck',
       version='0.3.0',
       author=u'Vespian',
       author_email='vespian a t wp.pl',
-      description='Simplified certificate check',
+      description='Certificate checking tool',
       packages=['certcheck'],
       scripts=['bin/certcheck'])
