@@ -140,7 +140,38 @@ test/ directory you can find:
 - moduletests/ - the unittests themselves
 - fabric/ - sample input files and test certificates temporary directories
 - output_coverage_html/ - coverage tests results in a form of an html webpage
-- test.py - script to start all the unittests
+
+Unittests can be started either by using *nosetest* command:
+
+```
+certcheck/ (master✗) # nosetests
+[20:33:02]
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.449s
+
+OK
+```
+
+or by issuing the *run_tests.py* command:
+
+```
+certcheck/ (master✗) # run_tests.py
+[20:33:04]
+Created test certificate expired_3_days.pem
+Created test certificate expire_6_days.pem
+Created test certificate expire_21_days.pem
+Created test certificate expire_41_days.pem
+Created test certificate expire_41_days.der
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.362s
+
+OK
+```
+
+The difference is that the *run_tests.py* takes care of generating coverage
+reports for you.
 
 All the dependencies required for performing the unittests are decribed in debian
 packaging scripts and are as follows:
@@ -148,5 +179,4 @@ packaging scripts and are as follows:
 - coverage
 - python-mock
 - openssl command in the PATH
-
-Plus all the dependencies mentioned in 'Project Setup' section.
+, plus all the dependencies mentioned in 'Project Setup' section.
