@@ -301,7 +301,7 @@ class TestCertCheck(unittest.TestCase):
         old_args = sys.argv
 
         #General parsing:
-        sys.argv = ['./certcheck.py', '-v', '-s', '-d', '-c', './certcheck.json']
+        sys.argv = ['./certcheck', '-v', '-s', '-d', '-c', './certcheck.json']
         parsed_cmdline = certcheck.parse_command_line()
         self.assertEqual(parsed_cmdline, {'std_err': True,
                                           'config_file': './certcheck.json',
@@ -310,14 +310,14 @@ class TestCertCheck(unittest.TestCase):
                                           })
 
         #Config file should be a mandatory argument:
-        sys.argv = ['./certcheck.py', ]
+        sys.argv = ['./certcheck', ]
         # Suppres warnings from argparse
         with mock.patch('sys.stderr'):
             parsed_cmdline = certcheck.parse_command_line()
         SysExitMock.assert_called_once_with(2)
 
         #Test default values:
-        sys.argv = ['./certcheck.py', '-c', './certcheck.json']
+        sys.argv = ['./certcheck', '-c', './certcheck.json']
         parsed_cmdline = certcheck.parse_command_line()
         self.assertEqual(parsed_cmdline, {'std_err': False,
                                           'config_file': './certcheck.json',

@@ -8,4 +8,4 @@ setup(name='certcheck',
       author_email='prozlach@spotify.com',
       description='Simplified certificate check',
       packages=['certcheck'],
-      scripts=['bin/certcheck.py'])
+      scripts=['bin/certcheck'])
