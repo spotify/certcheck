@@ -2,7 +2,7 @@ Source: certcheck
 Section: utils
 Priority: extra
 Maintainer: Vespian <vespian@wp.pl>
-Build-Depends: python (>= 2.6.6-3~), debhelper (>= 8),
+Build-Depends: python (>= 2.6.6-3~), debhelper (>= 8), python-dnspython
     python-coverage, openssl, python-openssl, python-bernhard, python-argparse,
     python-protobuf, python-unittest2, python-yaml, python-dulwich (>= 0.8),
     openssh-client
@@ -13,5 +13,6 @@ Package: certcheck
 Version: 0.2.0
 Architecture: any
 Depends: ${python:Depends}, python-openssl, python-bernhard, python-argparse,
-    python-protobuf, python-yaml, python-dulwich (>= 0.8), openssh-client
+    python-protobuf, python-yaml, python-dulwich (>= 0.8), openssh-client,
+    python-dnspython
 Description: Simple certificate check
