@@ -18,9 +18,9 @@
 from setuptools import setup
 
 setup(name='certcheck',
-      version='1',
-      author=u'Pawel Rozlach',
-      author_email='prozlach@spotify.com',
+      version='0.3.0',
+      author=u'Vespian',
+      author_email='vespian a t wp.pl',
       description='Simplified certificate check',
       packages=['certcheck'],
       scripts=['bin/certcheck'])

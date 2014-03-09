@@ -1,3 +1,11 @@
+certcheck (0.3.0) stable; urgency=low
+
+  * Documentation refactoring
+  * Make unittests nosetest compatible
+  * splitting script into modules
+
+ -- Vespian <vespian@wp.pl>  Mon, 18 Sep 2013 14:33:43 +0000
+
 certcheck (0.2.0) stable; urgency=low
 
   * Git integration.
