@@ -39,7 +39,6 @@ import mock
 
 #To perform local imports first we need to fix PYTHONPATH:
 pwd = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.abspath(pwd + '/../../../bin/'))
 sys.path.append(os.path.abspath(pwd + '/../../modules/'))
 
 #Local imports:
