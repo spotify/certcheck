@@ -19,8 +19,10 @@ from setuptools import setup
 
 setup(name='certcheck',
       version='0.3.0',
-      author=u'Vespian',
+      author='Vespian',
       author_email='vespian a t wp.pl',
+      license='ASF2.0',
+      url='https://github.com/vespian/certcheck',
       description='Certificate checking tool',
       packages=['certcheck'],
       scripts=['bin/certcheck'])
