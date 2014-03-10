@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2013 Spotify AB
 #
@@ -14,15 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+import certcheck
 
-from setuptools import setup
 
-setup(name='certcheck',
-      version='0.3.0',
-      author='Vespian',
-      author_email='vespian a t wp.pl',
-      license='ASF2.0',
-      url='https://github.com/vespian/certcheck',
-      description='Certificate checking tool',
-      packages=['certcheck'],
-      scripts=['bin/certcheck'])
+if __name__ == '__main__':
+    args_dict = certcheck.parse_command_line()
+
+    certcheck.main(**args_dict)

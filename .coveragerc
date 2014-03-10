@@ -17,11 +17,10 @@ exclude_lines =
     if 0:
     if __name__ == .__main__.:
 source =
-    ../bin/
-    ../certcheck/
+    ./certcheck/
 
 
 [html]
-directory = output_coverage_html
+directory = test/output_coverage_html
 
 [paths]

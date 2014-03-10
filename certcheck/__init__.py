@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (c) 2013 Spotify AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
 
 #Make it a bit more like python3:
 from __future__ import division
@@ -45,6 +60,11 @@ class RecoverableException(Exception):
 
 
 class PubkeySSHGitClient(SSHGitClient):
+    """
+    Simple class used to add pubkey authentication to the SSHGitClient class.
+    In the base class it is not supported, and using password authentication
+    for a script is insecure.
+    """
     def __init__(self, host, pubkey, port=None, username=None, *args, **kwargs):
         self.host = host
         self.port = port
@@ -81,6 +101,17 @@ class PubkeySSHGitClient(SSHGitClient):
 
 class LocalMirrorRepo(Repo):
     def lookup_files(self, determine_wants, root_sha=None, repo_path=''):
+        """
+        Search the repo for files described by the determine_wants
+        function. The function itself operates on the file paths in a repo and
+        must return True for objects of interest.
+
+        The search is done recursively, with each iteration scanning just one
+        repo directory. In case a directory is found the root_sha and repo_path
+        parameters are provided for a next iteration of the function.
+
+        The result is a list of the filenames accumulated by all iterations.
+        """
         file_list = []
         if root_sha is None:
             commit = self.get_object(self.head())
@@ -113,6 +144,10 @@ class LocalMirrorRepo(Repo):
 
 
 class CertStore(object):
+    """
+    Provides local clone of a remote repo plus some extra functionality to
+    ease extracting of the certificates from the repository
+    """
     _remote = None
     _local = None
 
@@ -146,6 +181,11 @@ class CertStore(object):
 
     @classmethod
     def lookup_certs(cls, cert_suffixes):
+        """
+        Find all the certificates in the repository. The classification is made
+        by checking whether file suffix can be found in th list of certificate
+        suffixes found in cert_suffixes parameter.
+        """
         if cls._local is None:
             raise RecoverableException("Local repo mirror has not been " +
                                        "initialized yet")
@@ -162,7 +202,9 @@ class CertStore(object):
 
 
 class ScriptConfiguration(object):
-
+    """
+    Simple file configuration class basing on the YAML format
+    """
     _config = dict()
 
     @classmethod
@@ -204,6 +246,10 @@ class ScriptStatus(object):
 
     @classmethod
     def _send_data(cls, event):
+        """
+        Send script status to all Riemann servers using all the protocols that
+        were configured.
+        """
         for riemann_connection in cls._riemann_connections:
             logging.info('Sending event {0}, '.format(str(event)) +
                          'using Riemann conn {0}:{1}'.format(
@@ -225,6 +271,9 @@ class ScriptStatus(object):
 
     @classmethod
     def _name2ip(cls, name):
+        """
+        Resolve a dns name. In case it is already an IP - just return it.
+        """
         if re.match('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', name):
             #IP entry:
             return name
@@ -240,6 +289,10 @@ class ScriptStatus(object):
 
     @classmethod
     def _resolve_srv_hosts(cls, name):
+        """
+        Find Riemann servers by resolving SRV record, provide some sanity
+        checks as well.
+        """
         result = []
         logging.debug("Resolving " + name)
         if name.find('._udp') > 0:
@@ -270,6 +323,10 @@ class ScriptStatus(object):
 
     @classmethod
     def _resolve_static_entry(cls, name):
+        """
+        Find Riemann servers by resolving plain A record, provide some sanity
+        checks as well.
+        """
         entry = namedtuple("RiemannHost", ['host', 'port', 'proto'])
         try:
             a, b, c = name.split(":")
@@ -413,7 +470,7 @@ class ScriptStatus(object):
 
 
 class ScriptLock(object):
-    #python lockfile is brain-damaged, we have to write our own class :/
+    #python lockfile isn't usefull, we have to write our own class
     _fh = None
     _file_path = None
 
@@ -451,13 +508,13 @@ class ScriptLock(object):
 
 def parse_command_line():
     parser = argparse.ArgumentParser(
-        description='Simple certificate expiration check',
-        epilog="Author: prozlach@spotify.com",
+        description='Certificate checking tool',
+        epilog="Author: vespian a t wp.pl",
         add_help=True,)
     parser.add_argument(
         '--version',
         action='version',
-        version='1.0')
+        version='0.3.0')
     parser.add_argument(
         "-c", "--config-file",
         action='store',
@@ -488,6 +545,11 @@ def parse_command_line():
 
 
 def get_cert_expiration(certificate, ignored_certs):
+    """
+    Extract the certificate expiration date for a certificate blob. Handle
+    ignored certificates by comparing shasum of the blob with entries in the
+    ignored_certs list
+    """
     if certificate.path[-3:] in ['pem', 'crt', 'cer']:
         try:
             #Many bad things can happen here, but still - we can recover! :)
@@ -654,8 +716,3 @@ def main(config_file, std_err=False, verbose=True, dont_send=False):
         msg = "Exception occured: {0}".format(e.__class__.__name__)
         logging.exception(msg)
         sys.exit(1)
-
-if __name__ == '__main__':
-    args_dict = parse_command_line()
-
-    main(**args_dict)
